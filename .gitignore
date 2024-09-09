@@ -22,3 +22,6 @@ ENV/
 # Logs
 *.log
 *.log.*
+
+# ignore test files
+app/test.py
