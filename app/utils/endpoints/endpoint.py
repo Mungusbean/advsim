@@ -3,7 +3,7 @@ import requests
 
 
 class Endpoint(ABC):
-    def __init__(self, API_key: str, endpoint_url:str|None = None) -> None:
+    def __init__(self, API_key: str|None, endpoint_url:str|None = None) -> None:
         self.API_key = API_key
         self.endpoint_url = endpoint_url
 
