@@ -15,19 +15,22 @@ class LLMBlock:
     def use_memory(self, state: bool):
         self._use_memory = state
 
-    def predict(self, prompt: str|None):
+    # tools have to be pipelines into this
+    def predict(self, prompt: str|None) -> str:
+        if not self.use_memory: return self.LLM._call(prompt)
+        else:
+            return self.LLM.predict(prompt)
+
+    def get_metrics(self) -> dict:
+        return dict()
+
+    def set_system_prompt(self, sys_prompt: str|None) -> None:
         pass
 
-    def get_metrics(self):
-        pass
-
-    def set_system_prompt(self, sys_prompt: str|None):
-        pass
-
-    def set_tools(self, tools):
+    def set_tools(self, tools) -> None:
         self.tools = tools
 
-    def add_tools(self, tool):
+    def add_tools(self, tool)  -> None:
         self.tools.append(tool)
 
 

@@ -1,6 +1,5 @@
 from typing import Any, Callable, List, Optional
 import flet as ft
-from utils.endpoints.Azure_endpoint import *
 from langchain.llms.base import LLM
 from langchain.chains import LLMChain, ConversationChain
 from langchain.memory import ConversationBufferMemory
@@ -79,13 +78,12 @@ class ChatTab(ft.ListView):
         pass
 
 
-class ChatTabsCollection(ft.Container):
-    """_summary_
-    Conists of a collection of ChatTabs
-    """
-    pass
-
 class inputBar(ft.Row):
+    """_summary_
+
+    Args:
+        ft (_type_): Input bar for manual testing of the model. Allows users to type prompts and test attack modules by sending them to the model.
+    """
     def __init__(self, chat_tab: ChatTab, alignment: ft.MainAxisAlignment | None = None, vertical_alignment: ft.CrossAxisAlignment | None = None, spacing: int | float | None = None, tight: bool | None = None, wrap: bool | None = None, run_spacing: int | float | None = None, scroll: ft.ScrollMode | None = None, auto_scroll: bool | None = None, on_scroll_interval: int | float | None = None, on_scroll: Callable[[ft.OnScrollEvent], None] | None = None, ref: ft.Ref | None = None, key: str | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end: Callable[[ft.ControlEvent], None] | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, rtl: bool | None = None, adaptive: bool | None = None):
         self.submit_button: ft.IconButton = ft.IconButton(icon= ft.icons.ARROW_CIRCLE_UP_ROUNDED,
                                                           icon_color=ft.colors.GREY_400,
@@ -128,14 +126,44 @@ class inputBar(ft.Row):
 
 
 
-class sideNavBar(ft.Container):
-    def __init__(self):
-        super().__init__()
+class sideNavBar(ft.NavigationDrawer):
+    def __init__(self, controls: List[ft.Control] | None = None, open: bool = False, selected_index: int | None = None, bgcolor: str | None = None, elevation: int | float | None = None, indicator_color: str | None = None, indicator_shape: ft.OutlinedBorder | None = None, shadow_color: str | None = None, surface_tint_color: str | None = None, tile_padding: int | float | ft.Padding | None = None, position: ft.NavigationDrawerPosition | None = None, on_change: Callable[[ft.ControlEvent], None] | None = None, on_dismiss: Callable[[ft.ControlEvent], None] | None = None, ref: ft.Ref | None = None, disabled: bool | None = None, visible: bool | None = None, data: Any = None):
+        self.Navigations = ft.ListView(
+            controls=[
+                ft.Text("Placeholder1"),
+                ft.Text("Placeholder2"),
+                ft.Text("Placeholder3"),
+                ft.Text("Placeholder4")
+            ]
+        )
+        controls = [self.Navigations]
+        super().__init__(controls, open, selected_index, bgcolor, elevation, indicator_color, indicator_shape, shadow_color, surface_tint_color, tile_padding, position, on_change, on_dismiss, ref, disabled, visible, data)
+    
+    def delete_ChatTab(self, event):
+        event.control.parent.controls.remove(event.control)
+        #add callbacdk to update page?
 
-    def dimiss_NavBar(self):
-        pass
 
-    def enable_NavBar(self):
-        pass
 
+    # Method to help add a dismissable chat to the navbar
+    # Onclick, loads the selected chat and system into the chat.
+    def add_ChatTab(self, title: str, description: str):
+        if len(self.controls) < 1: return # type: ignore
+        exp = ft.ExpansionPanel(
+            header= ft.ListTile(title=ft.Text(title))
+        )
+        exp.content = ft.ListTile(subtitle=ft.Text(description),
+                                  trailing=ft.IconButton(ft.icons.DELETE, on_click=print("To be implemented"), data=exp)
+
+        )
+        self.controls.append(ft.Dismissible( # type: ignore
+            content= exp,
+            dismiss_direction=ft.DismissDirection.HORIZONTAL,
+            secondary_background=ft.Container(content=ft.Text("delete"),
+                                              bgcolor=ft.colors.RED_300),
+            dismiss_thresholds={
+                ft.DismissDirection.END_TO_START: 0.2
+            }
+        ))
+    
     pass
