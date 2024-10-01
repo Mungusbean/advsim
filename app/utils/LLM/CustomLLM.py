@@ -1,4 +1,4 @@
-from langchain.llms.base import LLM
+from langchain.llms.base import LLM, BaseLLM
 from typing import Optional, List
 from utils.endpoints.endpoint import Endpoint, ENDPOINTS
 
@@ -46,3 +46,4 @@ class RequestsLLM(LLM):
         self.endpoint = endpoint
         return self
         pass
+

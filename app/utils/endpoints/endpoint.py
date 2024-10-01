@@ -97,7 +97,6 @@ class AzureEndpoint(Endpoint):
         }
         return payload
 
-
 # Yet to be fully implemented
 class OllamaEndpoint(Endpoint):
     def __init__(self, API_key: str | None, 
@@ -110,7 +109,7 @@ class OllamaEndpoint(Endpoint):
     def create_payload(self, prompt: str) -> dict:
         return super().create_payload(prompt)
     
-
+    
 # Yet to be implemented 
 class GeminiEndpoint(Endpoint):
     def __init__(self, API_key: str | None, endpoint_url: str | None = None) -> None:

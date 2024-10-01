@@ -84,11 +84,13 @@ class inputBar(ft.Row):
     Args:
         ft (_type_): Input bar for manual testing of the model. Allows users to type prompts and test attack modules by sending them to the model.
     """
-    def __init__(self, chat_tab: ChatTab, alignment: ft.MainAxisAlignment | None = None, vertical_alignment: ft.CrossAxisAlignment | None = None, spacing: int | float | None = None, tight: bool | None = None, wrap: bool | None = None, run_spacing: int | float | None = None, scroll: ft.ScrollMode | None = None, auto_scroll: bool | None = None, on_scroll_interval: int | float | None = None, on_scroll: Callable[[ft.OnScrollEvent], None] | None = None, ref: ft.Ref | None = None, key: str | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end: Callable[[ft.ControlEvent], None] | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, rtl: bool | None = None, adaptive: bool | None = None):
+    def __init__(self, page: ft.Page, chat_tab: ChatTab, alignment: ft.MainAxisAlignment | None = None, vertical_alignment: ft.CrossAxisAlignment | None = None, spacing: int | float | None = None, tight: bool | None = None, wrap: bool | None = None, run_spacing: int | float | None = None, scroll: ft.ScrollMode | None = None, auto_scroll: bool | None = None, on_scroll_interval: int | float | None = None, on_scroll: Callable[[ft.OnScrollEvent], None] | None = None, ref: ft.Ref | None = None, key: str | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end: Callable[[ft.ControlEvent], None] | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, rtl: bool | None = None, adaptive: bool | None = None):
         self.submit_button: ft.IconButton = ft.IconButton(icon= ft.icons.ARROW_CIRCLE_UP_ROUNDED,
                                                           icon_color=ft.colors.GREY_400,
                                                           icon_size=50,
                                                           tooltip="Send prompt",
+                                                          disabled= True,
+                                                          disabled_color=ft.colors.GREY_50,
                                                           on_click= self.send_to_LLM # type:ignore
                                                           )
         self.new_message: ft.TextField = ft.TextField(hint_text= "Message AI",
@@ -101,33 +103,67 @@ class inputBar(ft.Row):
                                                       min_lines= 1,
                                                       max_lines=3,
                                                       expand= True,
+                                                      on_change= self._toggle_submit_button, # type: ignore
                                                       on_submit= self.send_to_LLM # type: ignore
                                                       )
-        self.chat_tab = chat_tab
+        self.chat_tab: ChatTab = chat_tab
         controls: List[ft.Control] = [self.new_message, self.submit_button]
+        # self.page: ft.Page = page
         super().__init__(controls, alignment, vertical_alignment, spacing, tight, wrap, run_spacing, scroll, auto_scroll, on_scroll_interval, on_scroll, ref, key, width, height, left, top, right, bottom, expand, expand_loose, col, opacity, rotate, scale, offset, aspect_ratio, animate_opacity, animate_size, animate_position, animate_rotation, animate_scale, animate_offset, on_animation_end, visible, disabled, data, rtl, adaptive)
 
-    def send_to_LLM(self, e):
+    def _toggle_submit_button(self, e):
+        """
+        toggles the submit button on if the textfeild input is not blank
+        """
+        self.submit_button.disabled = not self.new_message.value or not self.new_message.value.strip()
+        self.update()
+
+
+    def send_to_LLM(self, e) -> None:
+        """
+        Sends the value of the text feild to the LLM 
+
+        Args:
+            e (_type_): event 
+
+        Returns:
+            _type_: None
+        """
+        # Check if the TextField value is None or empty
+        if not self.new_message.value or not self.new_message.value.strip():
+            return  # Do nothing if the input is None or empty
+        
         prompt = self.new_message.value
         self.new_message.value = ""; self.new_message.update() # clear input from the text feild
 
+        self.submit_button.disabled = True # ensure button and textfeilds are dsiabled while waiting for the message to be sent.
+        self.new_message.disabled = True
+        self.update()
 
-        self.chat_tab.add_bubble(role=True,text=prompt) # type: ignore # Add in the user's prompt bubble
+        self.chat_tab.add_bubble(role=True,text=prompt) # type: ignore # Adds in and renders the user's prompt bubble
         self.chat_tab.add_bubble(role=False, text=None); self.chat_tab.update() # Add loading bubble while waiting for the API to return the response.
-        
-        # Disable the text feild until a response is received from the LLM API
 
-        response = self.chat_tab.LLM_info.predict(input=prompt)
+        # response = self.chat_tab.LLM_info.predict(input=prompt)
+        response = self.chat_tab.LLM_info.invoke(
+            {"input": prompt},
+            config = {"configurable": {"session_id":  "abc123"}}
+
+        )
         self.chat_tab.pop() # Remove the loading bubble.
 
         self.chat_tab.add_bubble(role=False,text=response); self.chat_tab.update() # Update the chat_tab object with the received response. 
 
-
-
-
+        self.new_message.disabled = False # Re-able just the textfeild when the page is updated.
+        self.new_message.update()
+        
+    
 
 class sideNavBar(ft.NavigationDrawer):
-    def __init__(self, controls: List[ft.Control] | None = None, open: bool = False, selected_index: int | None = None, bgcolor: str | None = None, elevation: int | float | None = None, indicator_color: str | None = None, indicator_shape: ft.OutlinedBorder | None = None, shadow_color: str | None = None, surface_tint_color: str | None = None, tile_padding: int | float | ft.Padding | None = None, position: ft.NavigationDrawerPosition | None = None, on_change: Callable[[ft.ControlEvent], None] | None = None, on_dismiss: Callable[[ft.ControlEvent], None] | None = None, ref: ft.Ref | None = None, disabled: bool | None = None, visible: bool | None = None, data: Any = None):
+    def __init__(
+        self,
+        controls: List[ft.Control] | None = None,
+        **kwargs
+    ):
         self.Navigations = ft.ListView(
             controls=[
                 ft.Text("Placeholder1"),
@@ -136,34 +172,94 @@ class sideNavBar(ft.NavigationDrawer):
                 ft.Text("Placeholder4")
             ]
         )
+        self.tile_padding = 0.2
+        self.tabs = {}
         controls = [self.Navigations]
-        super().__init__(controls, open, selected_index, bgcolor, elevation, indicator_color, indicator_shape, shadow_color, surface_tint_color, tile_padding, position, on_change, on_dismiss, ref, disabled, visible, data)
-    
-    def delete_ChatTab(self, event):
-        event.control.parent.controls.remove(event.control)
-        #add callbacdk to update page?
-
-
-
-    # Method to help add a dismissable chat to the navbar
-    # Onclick, loads the selected chat and system into the chat.
-    def add_ChatTab(self, title: str, description: str):
-        if len(self.controls) < 1: return # type: ignore
-        exp = ft.ExpansionPanel(
-            header= ft.ListTile(title=ft.Text(title))
+        super().__init__(
+            controls=controls,
+            **kwargs
         )
-        exp.content = ft.ListTile(subtitle=ft.Text(description),
-                                  trailing=ft.IconButton(ft.icons.DELETE, on_click=print("To be implemented"), data=exp)
 
-        )
-        self.controls.append(ft.Dismissible( # type: ignore
-            content= exp,
-            dismiss_direction=ft.DismissDirection.HORIZONTAL,
-            secondary_background=ft.Container(content=ft.Text("delete"),
-                                              bgcolor=ft.colors.RED_300),
-            dismiss_thresholds={
-                ft.DismissDirection.END_TO_START: 0.2
-            }
-        ))
+    def delete_ChatTab(self, event: ft.ControlEvent) -> bool:
+        """Removes an elements from the NavBar class's navigations list
+
+        Args:
+            event (ft.ControlEvent): for internal use as a lambda function in flet objects.
+
+        Returns:
+            bool: Returns True when the tab is sucessfully deleted else returns false
+        """
+        try:
+            self.Navigations.controls.remove(event.control.parent.parent) # removing the selected tab from the navigation drawer
+            print("Sucessfully deleted tab")
+            self.Navigations.update()
+            return True
+        except Exception as e:
+            print(f"Could not delete tab due to: {e}")
+            return False
+
+    def add_ChatTab(self, title: str, description: str) -> bool:
+        """Adds a new tab to the navigation drawer for access later. Tabs are used to hold specific model setups.
+        Returns True if sucessfully added tab else returns False
+
+        Args:
+            title (str): title for the tab to be added.
+            description (str): short ddesceription for tab to be added.
+        """
+        try:
+            delete_button = ft.IconButton(icon=ft.icons.DELETE,
+                                          on_click= self.delete_ChatTab) # type: ignore (I'm doing some bad stuff with flet objects rn)
+            tile=ft.ExpansionTile(title= ft.Text(title),
+                                        affinity= ft.TileAffinity.PLATFORM,
+                                        controls= [ft.Row(controls=[
+                                            ft.Text(description),
+                                            delete_button
+                                        ])]
+                                        )
+            self.Navigations.controls.append(tile) # appending the tile to nav controls (no need to update page as the entire navigation drawer is event based and not added directly to a page)
+            return True
+        except Exception as e:
+            # should probably use loggers
+            print(f"Ran into error when attempting to add tab: {e}")
+            return False
+        
+class OptionsGrid(ft.GridView):
+    def __init__(self, controls: List[ft.Control] | None = None, horizontal: bool | None = None, runs_count: int | None = None, max_extent: int | None = None, spacing: int | float | None = None, run_spacing: int | float | None = None, child_aspect_ratio: int | float | None = None, padding: int | float | ft.Padding | None = None, clip_behavior: ft.ClipBehavior | None = None, semantic_child_count: int | None = None, cache_extent: int | float | None = None, ref: ft.Ref | None = None, key: str | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end: Callable[[ft.ControlEvent], None] | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, auto_scroll: bool | None = None, reverse: bool | None = None, on_scroll_interval: int | float | None = None, on_scroll: Callable[[ft.OnScrollEvent], None] | None = None, adaptive: bool | None = None):
+        if controls is None:
+            controls = [
+                
+            ]
+        super().__init__(controls, horizontal, runs_count, max_extent, spacing, run_spacing, child_aspect_ratio, padding, clip_behavior, semantic_child_count, cache_extent, ref, key, width, height, left, top, right, bottom, expand, expand_loose, col, opacity, rotate, scale, offset, aspect_ratio, animate_opacity, animate_size, animate_position, animate_rotation, animate_scale, animate_offset, on_animation_end, visible, disabled, data, auto_scroll, reverse, on_scroll_interval, on_scroll, adaptive)
     
+
+
+class TopMenuBar(ft.MenuBar):
+    def __init__(self, controls: List[ft.Control]|None = None, clip_behavior: ft.ClipBehavior | None = None, style: ft.MenuStyle | None = None, ref: ft.Ref | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None):
+        if controls is None:
+            controls = [ft.MenuItemButton(),
+                        ft.MenuItemButton(),
+                        ]
+        super().__init__(controls, clip_behavior, style, ref, expand, expand_loose, col, opacity, visible, disabled, data)
+
+
+    # Sub Menu Handlers 
+    def handle_submenu_open(self):
+        pass
+
+    def handle_submenu_close(self):
+        pass
+
+    def handle_submenu_hover(self):
+        pass
+
+    def handle_submenu_click(self):
+        pass
+
+    # Menu buttons Handlers
+    def handle_menubutton_hover(self):
+        pass
+
+    def handle_menubutton_click(self, e, route): 
+        pass
+
     pass
