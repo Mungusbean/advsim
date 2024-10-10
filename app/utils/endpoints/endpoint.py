@@ -3,9 +3,10 @@ from abc import ABC, abstractmethod
 
 
 class Endpoint(ABC):
-    def __init__(self, API_key: str|None, endpoint_url:str|None = None) -> None:
-        self.API_key = API_key
-        self.endpoint_url = endpoint_url
+    def __init__(self, API_key: str|None, endpoint_url:str|None = None, max_retries: int = 3) -> None:
+        self.API_key: str|None = API_key
+        self.endpoint_url: str|None = endpoint_url
+        self.max_retries: int = max_retries
 
     @abstractmethod
     def create_payload(self, prompt: str) -> dict:
@@ -44,7 +45,7 @@ class Endpoint(ABC):
             'Content-Type': 'application/json'
         }
 
-    def make_request(self, prompt: str) -> dict:
+    def make_request(self, prompt: str) -> dict| int:
         """
         Make the request to the language model API and return the response.
         
@@ -52,9 +53,16 @@ class Endpoint(ABC):
         :return: The response from the API as a dictionary.
         """
         payload = self.create_payload(prompt)
-        response = requests.post(self.get_url(), headers=self.get_headers(), json=payload)
-        response.raise_for_status()  
-        return response.json()
+        try:
+            for i in range(self.max_retries):
+                response = requests.post(self.get_url(), headers=self.get_headers(), json=payload)
+                print(f"attempting to send request {i}")
+                if response.status_code == 200: break
+            response.raise_for_status()  
+            return response.json()
+        except Exception as e:
+            print(f"ERROR: {e}")
+            return False # status code errors will be handled before being sent out
 
 
 # Endpoint for Azure AI
@@ -91,7 +99,7 @@ class AzureEndpoint(Endpoint):
         payload = {
                 "messages": [
                     {"role": "system", "content": self.system_prompt},
-                    {"role": "user", "content": prompt}
+                    {"role": "user", "content": prompt},
                 ],
                 "max_tokens": self.max_tokens
         }

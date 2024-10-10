@@ -23,9 +23,10 @@ class RequestsLLM(LLM):
         :return: The response from the language model as a string.
         """
         if self.endpoint is None: raise Exception(f"Invalid endpoint defined: {self.endpoint}")
-        print(f"_cal prompt: {prompt}")
+        print(f"\033[92m _cal prompt: {prompt} \033[0m")
         response = self.endpoint.make_request(prompt) 
-        return response["choices"][0]["message"]["content"] 
+        if response: return response["choices"][0]["message"]["content"] # type: ignore
+        else: return """⚠ Something went wrong."""
 
     @property
     def _identifying_params(self) -> dict:
@@ -45,5 +46,5 @@ class RequestsLLM(LLM):
         endpoint = ENDPOINTS[endpoint_type](**params) 
         self.endpoint = endpoint
         return self
-        pass
+
 
