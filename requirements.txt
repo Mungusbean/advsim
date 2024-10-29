@@ -2,4 +2,6 @@ flet
 nltk
 homoglyphs
 langchain
+langchain-core 
+langchain-community 
 openai

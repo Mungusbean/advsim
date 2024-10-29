@@ -103,7 +103,7 @@ class AzureEndpoint(Endpoint):
                 ],
                 "max_tokens": self.max_tokens
         }
-        return payload
+        return payload 
 
 # Yet to be fully implemented
 class OllamaEndpoint(Endpoint):
@@ -120,14 +120,20 @@ class OllamaEndpoint(Endpoint):
     
 # Yet to be implemented 
 class GeminiEndpoint(Endpoint):
-    def __init__(self, API_key: str | None, endpoint_url: str | None = None) -> None:
+    def __init__(self, API_key: str | None, endpoint_url: str | None = None, deployment_id: str = "gemini-1.5-flash") -> None:
+        self.deployment_id: str = deployment_id
         super().__init__(API_key, endpoint_url)
     
     def get_url(self) -> str:
-        return super().get_url()
+        return f"https://generativelanguage.googleapis.com/v1beta/models/{self.deployment_id}:generateContent?key={self.API_key}"
     
     def create_payload(self, prompt: str) -> dict:
         return super().create_payload(prompt)
+    
+    def get_headers(self) -> dict:
+        return {
+            'Content-Type': 'application/json'
+        }
     
 
 # yet to be implemented

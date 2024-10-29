@@ -26,6 +26,7 @@ class ChatBubble(ft.Card):
                 # code_theme="atom-one-dark", # type: ignore
                 code_theme=ft.MarkdownCodeTheme.ATOM_ONE_DARK_REASONABLE, # type: ignore
                 code_style=ft.TextStyle(font_family="Courier New"),
+                md_style_sheet= ft.MarkdownStyleSheet(a_text_style=ft.TextStyle(font_family="Inter"),)
                 # code_style_sheet=ft.MarkdownStyleSheet(code_text_style=ft.TextStyle(font_family="Courier New"))
             ),
             padding=24
@@ -36,18 +37,32 @@ class ChatBubble(ft.Card):
 
     def __str__(self) -> str: 
         return f"{'User' if self.is_user else 'AI'}"
-        
+    
+
+
 class ChatTab(ft.ListView):
     """_summary_
     Subclass of a flet ListView object. 
     Holds the conversation between the user and the specified model.
     """
-    def __init__(self, LLM_info, Chat_title: str, controls: List[ft.Control] | None = None, horizontal: bool | None = None, spacing: int | float | None = 10, item_extent: int | float | None = None, first_item_prototype: bool | None = None, divider_thickness: int | float | None = None, padding: int | float | ft.Padding | None = None, clip_behavior: ft.ClipBehavior | None = None, semantic_child_count: int | None = None, cache_extent: int | float | None = None, auto_scroll: bool | None = None, reverse: bool | None = None, on_scroll_interval: int | float | None = None, on_scroll: Callable[[ft.OnScrollEvent], None] | None = None, ref: ft.Ref | None = None, key: str | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end: Callable[[ft.ControlEvent], None] | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, adaptive: bool | None = None):
+    __Chat_tab_instance = None 
+
+    # To implement a singleton for the chat interface, as only its parameters needs to be changes for 
+    def __new__(cls, *args, **kwargs):
+        if cls.__Chat_tab_instance is None:
+            cls.__Chat_tab_instance = super().__new__(cls) 
+        return cls.__Chat_tab_instance
+        
+
+    def __init__(self, LLM, Chat_title: str, controls: List[ft.Control] | None = None, horizontal: bool | None = None, spacing: int | float | None = 10, item_extent: int | float | None = None, first_item_prototype: bool | None = None, divider_thickness: int | float | None = None, padding: int | float | ft.Padding | None = None, clip_behavior: ft.ClipBehavior | None = None, semantic_child_count: int | None = None, cache_extent: int | float | None = None, auto_scroll: bool | None = None, reverse: bool | None = None, on_scroll_interval: int | float | None = None, on_scroll: Callable[[ft.OnScrollEvent], None] | None = None, ref: ft.Ref | None = None, key: str | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end: Callable[[ft.ControlEvent], None] | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, adaptive: bool | None = None):
         self.Chat_title: str = Chat_title
-        self.LLM_info = LLM_info
+        self.LLM = LLM
         padding = 10
         auto_scroll = True
         super().__init__(controls, horizontal, spacing, item_extent, first_item_prototype, divider_thickness, padding, clip_behavior, semantic_child_count, cache_extent, auto_scroll, reverse, on_scroll_interval, on_scroll, ref, key, width, height, left, top, right, bottom, expand, expand_loose, col, opacity, rotate, scale, offset, aspect_ratio, animate_opacity, animate_size, animate_position, animate_rotation, animate_scale, animate_offset, on_animation_end, visible, disabled, data, adaptive)
+
+    def __reduce__(self):
+        return (self.__class__, (self.LLM, self.Chat_title))
 
     def add_bubble(self, role: bool, text: str| None) -> None:
         """_summary_
@@ -80,6 +95,9 @@ class ChatTab(ft.ListView):
         self.controls.pop()
 
     def delete_bubble(self, index):
+        pass
+
+    def clear_chat(self):
         pass
 
 
@@ -134,6 +152,8 @@ class inputBar(ft.Row):
         Returns:
             _type_: None
         """
+        if self.chat_tab.LLM is None:
+            return
         # Check if the TextField value is None or empty
         if not self.new_message.value or not self.new_message.value.strip():
             return  # Do nothing if the input is None or empty
@@ -149,9 +169,9 @@ class inputBar(ft.Row):
         self.chat_tab.add_bubble(role=False, text=None); self.chat_tab.update() # Add loading bubble while waiting for the API to return the response.
 
         # response = self.chat_tab.LLM_info.predict(input=prompt)
-        response = self.chat_tab.LLM_info.invoke(
+        response = self.chat_tab.LLM.invoke(
             {"input": prompt},
-            config = {"configurable": {"session_id":  "abc123"}}
+            config = {"configurable": {"session_id":  self.chat_tab.Chat_title}}
 
         )
         self.chat_tab.pop() # Remove the loading bubble.
@@ -166,20 +186,24 @@ class inputBar(ft.Row):
 class sideNavBar(ft.NavigationDrawer):
     def __init__(
         self,
+        reference_Page,
         controls: List[ft.Control] | None = None,
         **kwargs
     ):
+        self.reference_Page = reference_Page
         self.Navigations = ft.ListView(
             controls=[
-                ft.Text("Placeholder1"),
-                ft.Text("Placeholder2"),
-                ft.Text("Placeholder3"),
-                ft.Text("Placeholder4")
-            ]
+                ft.ElevatedButton(text='Home', on_click=lambda _: self.reference_Page.go('/Home')),
+                ft.ElevatedButton(text='Chat', on_click=lambda _: self.reference_Page.go('/ManualChatUI')),
+                ft.ElevatedButton(text='Editor', on_click=lambda _: self.reference_Page.go('/Editor')),
+                ft.ElevatedButton(text='Endpoints', on_click=lambda _: self.reference_Page.go('/Endpoints'))
+            ],
+            padding=20
         )
+        self.tabs = ft.ListView()
+
         self.tile_padding = 0.2
-        self.tabs = {}
-        controls = [self.Navigations]
+        controls = [self.Navigations, self.tabs]
         super().__init__(
             controls=controls,
             **kwargs
@@ -195,9 +219,9 @@ class sideNavBar(ft.NavigationDrawer):
             bool: Returns True when the tab is sucessfully deleted else returns false
         """
         try:
-            self.Navigations.controls.remove(event.control.parent.parent) # removing the selected tab from the navigation drawer
+            self.tabs.controls.remove(event.control.parent.parent) # removing the selected tab from the navigation drawer
             print("Sucessfully deleted tab")
-            self.Navigations.update()
+            self.tabs.update()
             return True
         except Exception as e:
             print(f"Could not delete tab due to: {e}")
@@ -221,7 +245,7 @@ class sideNavBar(ft.NavigationDrawer):
                                             delete_button
                                         ])]
                                         )
-            self.Navigations.controls.append(tile) # appending the tile to nav controls (no need to update page as the entire navigation drawer is event based and not added directly to a page)
+            self.tabs.controls.append(tile) # appending the tile to nav controls (no need to update page as the entire navigation drawer is event based and not added directly to a page)
             return True
         except Exception as e:
             # should probably use loggers
