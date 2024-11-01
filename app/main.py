@@ -1,23 +1,33 @@
 import flet as ft
 import ui_components.components as ui
+import logging
 
-
+ICON_ROUTES = {"/": ft.Icon(ft.icons.HOME), 
+               "/Chat":ft.Icon(ft.icons.CHAT), 
+               "/Editor":ft.Icon(ft.icons.EDIT), 
+               "/Endpoints":ft.Icon(ft.icons.CELL_TOWER),
+               "/Settings":ft.Icon(ft.icons.SETTINGS)} 
 
 def main(page: ft.Page) -> None:
-    page.title = "Home" # Sets first page title
-
+    page.title = "ADVSim" # Sets first page title
     # Instantiate global UI components
-    chat_tab = ui.ChatTab(LLM=None, Chat_title="No Chat Selected", auto_scroll=True) # instantiates the singleton chat interface object for manual testing 
-    chat_tab.auto_scroll = True
+    chat_tab = ui.ChatTab(LLM=None, Chat_title="No Chat Selected", auto_scroll=True) # instantiates the singleton chat interface object 
+    chat_tab.auto_scroll = True # Allows the chat to auto scroll to latest message sent, when interacting with the chat UI.
     nav_bar = ui.sideNavBar(reference_Page = page)
+
+    # Populating the nav bar with routing buttons 
+    for route, icon in ICON_ROUTES.items():
+        nav_bar.add_NavButton(ui.NavigationButton(Page=page, Route=route, Icon=icon, Text=(route[1:] if route[1:] else "Home")))
 
     # Testing tab adding functionaility
     for i in range(20):
         nav_bar.add_ChatTab(f"Title {i}", f"Description {i}")
+    # ================================
 
-    app_bar = ft.AppBar(title=None)
+    app_bar = ft.AppBar(title=None, bgcolor=ft.colors.SURFACE_VARIANT)
     print("objects initialised")
 
+    # Note to self: please, PLEASE find a better way to do this, this is horrible
     def route_change(e: ft.RouteChangeEvent) -> None:
         page.views.clear()
         app_bar.title = ft.Text("Home")
@@ -27,20 +37,19 @@ def main(page: ft.Page) -> None:
             controls = [
                 app_bar,
                 ft.Text(value="Home", size=30),
-                ft.ElevatedButton(text='Chat', on_click=lambda _: page.go('/ManualChatUI'))
             ],
             vertical_alignment= ft.MainAxisAlignment.CENTER,
             horizontal_alignment= ft.CrossAxisAlignment.CENTER,
-            spacing = 26
+            spacing=26
             )
         )
 
         match page.route:
-            case "/ManualChatUI":
+            case "/Chat":
                 app_bar.title = ft.Text("Chat")
                 page.views.append(
                     ft.View(
-                        route = "/ManualChatUI", 
+                        route = "/Chat", 
                         controls= [
                             app_bar,
                             ft.Column(
@@ -63,7 +72,7 @@ def main(page: ft.Page) -> None:
                         ],
                         vertical_alignment= ft.MainAxisAlignment.CENTER,
                         horizontal_alignment= ft.CrossAxisAlignment.CENTER,
-                        spacing = 26
+                        spacing=26
                     )
                 )
             
@@ -74,7 +83,23 @@ def main(page: ft.Page) -> None:
                         route= "/Endpoints",
                         controls = [
                             app_bar,
-                            ft.Text("Endpoints", size=30)
+                            ft.Text("Endpoints", size=30), 
+                            ft.Container(
+                                content= ft.GridView(
+                                                    expand=1,
+                                                    runs_count=3,
+                                                    max_extent=150,
+                                                    child_aspect_ratio=1.0,
+                                                    spacing=5,
+                                                    run_spacing=5), 
+                                expand=True,
+                                padding=10
+                            ),
+                            ft.Container(
+                                content = ft.ListView(), # temp placeholder
+                                expand=True,
+                                padding=10,
+                            )
                         ],
                         vertical_alignment= ft.MainAxisAlignment.CENTER,
                         horizontal_alignment= ft.CrossAxisAlignment.CENTER,

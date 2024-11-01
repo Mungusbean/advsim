@@ -1,4 +1,4 @@
-from typing import Any, Callable, List, Optional
+from typing import Any, Callable, List, Optional, Sequence
 import flet as ft
 from langchain.llms.base import LLM
 from langchain.chains import LLMChain, ConversationChain
@@ -116,7 +116,8 @@ class inputBar(ft.Row):
                                                           disabled_color=ft.colors.GREY_50,
                                                           on_click= self.send_to_LLM # type:ignore
                                                           )
-        self.new_message: ft.TextField = ft.TextField(hint_text= "Message AI",
+        self.__hint_text = "Message AI"
+        self.new_message: ft.TextField = ft.TextField(hint_text= self.__hint_text,
                                                       border_color=ft.colors.TRANSPARENT,
                                                       border_radius= 25,  # Set rounded corners
                                                       filled=True,  # Optional: Adds a background color to make it stand out
@@ -182,23 +183,25 @@ class inputBar(ft.Row):
         self.new_message.update()
         
     
+class NavigationButton(ft.MenuItemButton):
+        def __init__(self, Page: ft.Page, Route: str, Icon: ft.Icon=ft.Icon(ft.icons.ABC), Text: str="Button", Text_size: int=16, *args, **kwargs):
+            super().__init__(leading = Icon, content=ft.Text(Text, size=Text_size), on_click=lambda _: Page.go(Route),*args, **kwargs)
+            
 
 class sideNavBar(ft.NavigationDrawer):
     def __init__(
         self,
-        reference_Page,
+        reference_Page: ft.Page,
         controls: List[ft.Control] | None = None,
         **kwargs
     ):
         self.reference_Page = reference_Page
         self.Navigations = ft.ListView(
             controls=[
-                ft.ElevatedButton(text='Home', on_click=lambda _: self.reference_Page.go('/Home')),
-                ft.ElevatedButton(text='Chat', on_click=lambda _: self.reference_Page.go('/ManualChatUI')),
-                ft.ElevatedButton(text='Editor', on_click=lambda _: self.reference_Page.go('/Editor')),
-                ft.ElevatedButton(text='Endpoints', on_click=lambda _: self.reference_Page.go('/Endpoints'))
+                ft.Row(controls=[ft.Icon(ft.icons.LIGHT_MODE, size=24),ft.CupertinoSwitch(label="Light mode", value=True, on_change=self.toggle_light_dark, track_color=ft.colors.GREEN_400)], spacing=5)
             ],
-            padding=20
+            padding=20,
+            spacing = 5
         )
         self.tabs = ft.ListView()
 
@@ -208,6 +211,12 @@ class sideNavBar(ft.NavigationDrawer):
             controls=controls,
             **kwargs
         )
+    
+    def toggle_light_dark(self, e):
+            self.reference_Page.theme_mode = ft.ThemeMode.DARK if not self.Navigations.controls[0].controls[1].value else ft.ThemeMode.LIGHT # toggles between light and dark
+            self.Navigations.controls[0].controls[0] = ft.Icon(ft.icons.DARK_MODE, size=24, color=ft.colors.GREEN_400) if not self.Navigations.controls[0].controls[1].value else ft.Icon(ft.icons.LIGHT_MODE, size=24) # type: ignore toggles between light and dark icon symbols
+            self.Navigations.controls[0].controls[1].label = "Dark mode" if not self.Navigations.controls[0].controls[1].value else "Light Mode"
+            self.reference_Page.update()
 
     def delete_ChatTab(self, event: ft.ControlEvent) -> bool:
         """Removes an elements from the NavBar class's navigations list
@@ -251,44 +260,59 @@ class sideNavBar(ft.NavigationDrawer):
             # should probably use loggers
             print(f"Ran into error when attempting to add tab: {e}")
             return False
-        
-class OptionsGrid(ft.GridView):
-    def __init__(self, controls: List[ft.Control] | None = None, horizontal: bool | None = None, runs_count: int | None = None, max_extent: int | None = None, spacing: int | float | None = None, run_spacing: int | float | None = None, child_aspect_ratio: int | float | None = None, padding: int | float | ft.Padding | None = None, clip_behavior: ft.ClipBehavior | None = None, semantic_child_count: int | None = None, cache_extent: int | float | None = None, ref: ft.Ref | None = None, key: str | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end: Callable[[ft.ControlEvent], None] | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, auto_scroll: bool | None = None, reverse: bool | None = None, on_scroll_interval: int | float | None = None, on_scroll: Callable[[ft.OnScrollEvent], None] | None = None, adaptive: bool | None = None):
-        if controls is None:
-            controls = [
-                
-            ]
-        super().__init__(controls, horizontal, runs_count, max_extent, spacing, run_spacing, child_aspect_ratio, padding, clip_behavior, semantic_child_count, cache_extent, ref, key, width, height, left, top, right, bottom, expand, expand_loose, col, opacity, rotate, scale, offset, aspect_ratio, animate_opacity, animate_size, animate_position, animate_rotation, animate_scale, animate_offset, on_animation_end, visible, disabled, data, auto_scroll, reverse, on_scroll_interval, on_scroll, adaptive)
     
+    def add_NavButton(self, NavButton: NavigationButton) -> bool:
+        try:
+            self.Navigations.controls.append(NavButton)
+            return True
+        except Exception as e:
 
+            return False 
 
-class TopMenuBar(ft.MenuBar):
-    def __init__(self, controls: List[ft.Control]|None = None, clip_behavior: ft.ClipBehavior | None = None, style: ft.MenuStyle | None = None, ref: ft.Ref | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None):
-        if controls is None:
-            controls = [ft.MenuItemButton(),
-                        ft.MenuItemButton(),
-                        ]
-        super().__init__(controls, clip_behavior, style, ref, expand, expand_loose, col, opacity, visible, disabled, data)
-
-
-    # Sub Menu Handlers 
-    def handle_submenu_open(self):
-        pass
-
-    def handle_submenu_close(self):
-        pass
-
-    def handle_submenu_hover(self):
-        pass
-
-    def handle_submenu_click(self):
-        pass
-
-    # Menu buttons Handlers
-    def handle_menubutton_hover(self):
-        pass
-
-    def handle_menubutton_click(self, e, route): 
-        pass
-
+class EndpointListTile(ft.ListTile):
     pass
+
+class EndpointsList(ft.Column):
+    def __init__(self, *args, **kwargs):
+        self.controls = [
+            ft.SearchBar(),
+            ft.ListView()
+        ]
+        super().__init__(*args, controls=self.controls,**kwargs)
+
+    def add_endpoint_tile(self) -> bool:
+        return True
+
+    def remove_endpoint_tile(self) -> bool:
+        return True
+
+    def search(self, name: str) -> list:
+        return list()
+    
+class EndpointOptions(ft.GridView):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+class EditorUI(ft.Row):
+    def __init__(self, *args, **kwargs):
+        self.controls = []
+        super().__init__(*args, controls=self.controls, **kwargs)
+
+    def insert_attack_module(self, attack_module_name: str) -> bool:
+        return True
+
+    def remove_attack_module(self, attack_module_name: str) -> bool:
+        return True
+    
+    def insert_LLM_feature(self, feature_name: str) -> bool:
+        return True 
+    
+    def remove_LLM_feature(self, feature_name: str ) -> bool:
+        return True
+    
+    def insert_defence_module(self, defence_module_name: str) -> bool:
+        return True
+    
+    def remove_defence_module(self, defence_module_name: str) -> bool:
+        return True
+    
