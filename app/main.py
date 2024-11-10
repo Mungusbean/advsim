@@ -1,6 +1,9 @@
 import flet as ft
+import utils.endpoints.endpoint as ep
 import ui_components.components as ui
-import logging
+import ui_components.popup_components as uipopup
+import utils.utilfunctions as uf
+from LoggerConfig import setup_logger
 
 ICON_ROUTES = {"/": ft.Icon(ft.icons.HOME), 
                "/Chat":ft.Icon(ft.icons.CHAT), 
@@ -8,24 +11,31 @@ ICON_ROUTES = {"/": ft.Icon(ft.icons.HOME),
                "/Endpoints":ft.Icon(ft.icons.CELL_TOWER),
                "/Settings":ft.Icon(ft.icons.SETTINGS)} 
 
+logger = setup_logger(__name__)
+
 def main(page: ft.Page) -> None:
     page.title = "ADVSim" # Sets first page title
+
+    # Set up 
+
+
     # Instantiate global UI components
     chat_tab = ui.ChatTab(LLM=None, Chat_title="No Chat Selected", auto_scroll=True) # instantiates the singleton chat interface object 
     chat_tab.auto_scroll = True # Allows the chat to auto scroll to latest message sent, when interacting with the chat UI.
     nav_bar = ui.sideNavBar(reference_Page = page)
+    app_bar = ft.AppBar(title=None, bgcolor=ft.colors.SURFACE_VARIANT)
 
     # Populating the nav bar with routing buttons 
     for route, icon in ICON_ROUTES.items():
-        nav_bar.add_NavButton(ui.NavigationButton(Page=page, Route=route, Icon=icon, Text=(route[1:] if route[1:] else "Home")))
+        nav_bar.add_NavButton(ui.NavigationButton(page=page, Route=route, Icon=icon, Text=(route[1:] if route[1:] else "Home")))
 
     # Testing tab adding functionaility
     for i in range(20):
         nav_bar.add_ChatTab(f"Title {i}", f"Description {i}")
     # ================================
-
-    app_bar = ft.AppBar(title=None, bgcolor=ft.colors.SURFACE_VARIANT)
-    print("objects initialised")
+    
+    # print("objects initialised")
+    logger.info("objects initialised")
 
     # Note to self: please, PLEASE find a better way to do this, this is horrible
     def route_change(e: ft.RouteChangeEvent) -> None:
@@ -83,23 +93,8 @@ def main(page: ft.Page) -> None:
                         route= "/Endpoints",
                         controls = [
                             app_bar,
-                            ft.Text("Endpoints", size=30), 
-                            ft.Container(
-                                content= ft.GridView(
-                                                    expand=1,
-                                                    runs_count=3,
-                                                    max_extent=150,
-                                                    child_aspect_ratio=1.0,
-                                                    spacing=5,
-                                                    run_spacing=5), 
-                                expand=True,
-                                padding=10
-                            ),
-                            ft.Container(
-                                content = ft.ListView(), # temp placeholder
-                                expand=True,
-                                padding=10,
-                            )
+                            ft.Text("Endpoints", size=30),
+                            ui.EndpointsUI(page=page)
                         ],
                         vertical_alignment= ft.MainAxisAlignment.CENTER,
                         horizontal_alignment= ft.CrossAxisAlignment.CENTER,
@@ -107,7 +102,8 @@ def main(page: ft.Page) -> None:
                     )
                 )
 
-        print(page.views)
+        # print(page.views)
+        #logger.debug("Views:", page.views)
         page.views[-1].end_drawer = nav_bar
         page.update()
 
@@ -116,11 +112,13 @@ def main(page: ft.Page) -> None:
         top_view: ft.View = page.views[-1]
         page.go(top_view.route) # type: ignore
 
-    print("setting routing functions...")
+    # print("setting routing functions...")
+    logger.info("setting routing functions...")
     page.on_route_change = route_change
     page.on_view_pop = view_pop
     page.go(page.route)
-    print("navigated to home route")
+    # print("navigated to home route")
+    logger.info("navigated to home route")
 
 
 

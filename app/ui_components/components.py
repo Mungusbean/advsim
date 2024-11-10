@@ -1,13 +1,15 @@
-from typing import Any, Callable, List, Optional, Sequence
 import flet as ft
+import utils.endpoints.endpoint as ep
+from typing import Any, Callable, List, Optional, Sequence
 from langchain.llms.base import LLM
-from langchain.chains import LLMChain, ConversationChain
+# from langchain.chains import LLMChain, ConversationChain
 from langchain.memory import ConversationBufferMemory
+from utils.endpoints.endpoint import Save_New_Endpoint
 
 class ChatBubble(ft.Card):
-    def __init__(self, is_user:bool, id: str | None = None, text: str | None = None, margin: int | float | ft.Margin | None = None, elevation: int | float | None = None, color: str | None = None, shadow_color: str | None = None, surface_tint_color: str | None = None, shape: ft.OutlinedBorder | None = ft.RoundedRectangleBorder(radius=10), clip_behavior: ft.ClipBehavior | None = None, is_semantic_container: bool | None = None, show_border_on_foreground: bool | None = None, variant: ft.CardVariant | None = None, ref: ft.Ref | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end = None, tooltip: str | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, key: str | None = None, adaptive: bool | None = None):
-        if is_user: color = "gray"
-        else: color = "white"
+    def __init__(self, is_user:bool, id: str | None = None, text: str | None = None, margin: int | float | ft.Margin | None = None, elevation: int | float | None = 0, color: str | None = None, shadow_color: str | None = None, surface_tint_color: str | None = None, shape: ft.OutlinedBorder | None = ft.RoundedRectangleBorder(radius=10), clip_behavior: ft.ClipBehavior | None = None, is_semantic_container: bool | None = None, show_border_on_foreground: bool | None = None, variant: ft.CardVariant | None = None, ref: ft.Ref | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end = None, tooltip: str | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, key: str | None = None, adaptive: bool | None = None):
+        if is_user: color = f"{ft.colors.SURFACE_VARIANT},0.8"
+        else: color = ft.colors.TRANSPARENT
 
         if text is None: 
             content = ft.ProgressRing(
@@ -29,7 +31,7 @@ class ChatBubble(ft.Card):
                 md_style_sheet= ft.MarkdownStyleSheet(a_text_style=ft.TextStyle(font_family="Inter"),)
                 # code_style_sheet=ft.MarkdownStyleSheet(code_text_style=ft.TextStyle(font_family="Courier New"))
             ),
-            padding=24
+            padding=16
             )
         super().__init__(content, margin, elevation, color, shadow_color, surface_tint_color, shape, clip_behavior, is_semantic_container, show_border_on_foreground, variant, ref, width, height, left, top, right, bottom, expand, expand_loose, col, opacity, rotate, scale, offset, aspect_ratio, animate_opacity, animate_size, animate_position, animate_rotation, animate_scale, animate_offset, on_animation_end, tooltip, visible, disabled, data, key, adaptive)
         self.is_user: bool =  is_user
@@ -47,7 +49,7 @@ class ChatTab(ft.ListView):
     """
     __Chat_tab_instance = None 
 
-    # To implement a singleton for the chat interface, as only its parameters needs to be changes for 
+    # To implement a singleton for the chat interface, as only its parameters needs changes
     def __new__(cls, *args, **kwargs):
         if cls.__Chat_tab_instance is None:
             cls.__Chat_tab_instance = super().__new__(cls) 
@@ -80,12 +82,17 @@ class ChatTab(ft.ListView):
                            id = f"{role_name}_{self.Chat_title}_{len(self.controls)}",
                            width= (1000 if len(text.split()) > 25 else None) if text else None
                            )]
-            controls.insert(int(role),ft.CircleAvatar(content = ft.Text(role_name),
-                                                      bgcolor = ft.colors.PURPLE_200 if role else ft.colors.AMBER_200)) # type: ignore
+            controls.insert(int(role), 
+                                ft.Container(
+                                    content=ft.CircleAvatar(content=ft.Text(role_name), bgcolor=ft.colors.PURPLE_200 if role else ft.colors.AMBER_200),
+                                    alignment=ft.alignment.top_center  # Aligns avatar at the top
+                                    ) # type: ignore
+                            ) 
             self.controls.append(
                 ft.Row(controls= controls, # type: ignore
                         alignment = bubble_alignment,
-                        spacing = 10
+                        spacing = 10,
+                        vertical_alignment= ft.CrossAxisAlignment.START
                     )
                 )
         except Exception as e:
@@ -184,8 +191,8 @@ class inputBar(ft.Row):
         
     
 class NavigationButton(ft.MenuItemButton):
-        def __init__(self, Page: ft.Page, Route: str, Icon: ft.Icon=ft.Icon(ft.icons.ABC), Text: str="Button", Text_size: int=16, *args, **kwargs):
-            super().__init__(leading = Icon, content=ft.Text(Text, size=Text_size), on_click=lambda _: Page.go(Route),*args, **kwargs)
+        def __init__(self, page: ft.Page, Route: str, Icon: ft.Icon=ft.Icon(ft.icons.ABC), Text: str="Button", Text_size: int=16, *args, **kwargs):
+            super().__init__(leading = Icon, content=ft.Text(Text, size=Text_size), on_click=lambda _: page.go(Route),*args, **kwargs)
             
 
 class sideNavBar(ft.NavigationDrawer):
@@ -254,6 +261,7 @@ class sideNavBar(ft.NavigationDrawer):
                                             delete_button
                                         ])]
                                         )
+
             self.tabs.controls.append(tile) # appending the tile to nav controls (no need to update page as the entire navigation drawer is event based and not added directly to a page)
             return True
         except Exception as e:
@@ -269,16 +277,79 @@ class sideNavBar(ft.NavigationDrawer):
 
             return False 
 
-class EndpointListTile(ft.ListTile):
+class IconListTile(ft.Container):
+    def __init__(self, 
+                 *args, 
+                 Title: str = "Title", 
+                 Subtitle: str = "Subtitle", 
+                 icons: str = ft.icons.CODE, 
+                 Title_size: int = 16, 
+                 Subtitle_size: int = 12,
+                 Title_color: str| None = None,
+                 Subtitle_color: str| None = None,
+                 bgcolor: str|None = None,
+                 border_radius: int = 8,
+                 tooltip: str = "Click to edit",
+                 on_click = None,
+                 **kwargs):
+        self.default_bgcolor = f"{ft.colors.SURFACE_VARIANT},0.3"
+        if not bgcolor: bgcolor = self.default_bgcolor 
+        self.icon = ft.Icon(icons)
+        self.Subtitle_color = Subtitle_color if Subtitle_color else ft.colors.GREY_400
+        self.content = ft.Row(controls=[
+            ft.Icon(icons),
+            ft.Column(controls=[ft.Text(Title, color=Title_color, size=Title_size), ft.Text(Subtitle, color=self.Subtitle_color, size=Subtitle_size)], spacing=0, expand=True),
+            ft.IconButton(icon=ft.icons.DELETE)
+        ])
+        super().__init__(*args, content=self.content, bgcolor=bgcolor, padding=5, on_click=on_click, on_hover=self.__on_hover, border_radius=border_radius, tooltip=tooltip,**kwargs)
+
+    def __on_hover(self, e):
+        e.control.bgcolor = self.default_bgcolor if e.data == "false" else ft.colors.ON_PRIMARY
+        e.control.update()
+        pass
+
+
     pass
 
-class EndpointsList(ft.Column):
-    def __init__(self, *args, **kwargs):
+class EndpointsUI(ft.Column):
+    def __init__(self, page: ft.Page, *args, **kwargs):
+        self.button_size = 88
+        self.button_color = ft.colors.SURFACE_VARIANT
         self.controls = [
-            ft.SearchBar(),
-            ft.ListView()
+            ft.Row(controls=[
+                ft.FloatingActionButton(icon=ft.icons.ADD, 
+                                        elevation=0, 
+                                        shape=ft.RoundedRectangleBorder(radius=12), 
+                                        height=self.button_size, 
+                                        width=self.button_size, 
+                                        bgcolor=self.button_color,
+                                        tooltip="Add an endpoint",
+                                        on_click=lambda _: print("Wow, the add endpoint button has been clicked!")),
+                ft.FloatingActionButton(icon=ft.icons.HELP_OUTLINE_ROUNDED, 
+                                        elevation=0, 
+                                        shape=ft.RoundedRectangleBorder(radius=12), 
+                                        height=self.button_size, 
+                                        width=self.button_size, 
+                                        bgcolor=self.button_color,
+                                        tooltip="Help",
+                                        on_click=lambda _: print("Wow, the help button has been clicked!"))
+            ],
+            alignment=ft.MainAxisAlignment.CENTER),
+            ft.Column(
+                controls=[
+                ft.TextField(hint_text="Search available endpoints",
+                             border_color=ft.colors.TRANSPARENT,
+                             fill_color=ft.colors.with_opacity(0.5,ft.colors.SURFACE_VARIANT),
+                             filled=True,
+                             border_radius=12,
+                             expand=True),
+                ft.Container(
+                content = ft.ListView(controls=[IconListTile(on_click=lambda _: print("icon tile 1 clicked")), IconListTile(on_click=lambda _: print("icon tile 2 clicked"))],
+                            spacing=5, 
+                            padding=10))],
+                width=800),
         ]
-        super().__init__(*args, controls=self.controls,**kwargs)
+        super().__init__(*args,controls=self.controls, **kwargs)
 
     def add_endpoint_tile(self) -> bool:
         return True
@@ -289,9 +360,8 @@ class EndpointsList(ft.Column):
     def search(self, name: str) -> list:
         return list()
     
-class EndpointOptions(ft.GridView):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+    def on_click_endpoint_tile(self):
+        pass
 
 class EditorUI(ft.Row):
     def __init__(self, *args, **kwargs):

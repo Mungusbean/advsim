@@ -1,7 +1,7 @@
 from langchain.llms.base import LLM, BaseLLM
 from typing import Optional, List
+import json
 from utils.endpoints.endpoint import Endpoint, ENDPOINTS
-
 
 class RequestsLLM(LLM):
     """_summary_
@@ -46,5 +46,17 @@ class RequestsLLM(LLM):
         endpoint = ENDPOINTS[endpoint_type](**params) 
         self.endpoint = endpoint
         return self
+    
+    def load_endpoint_from_save(self, filename: str) -> Endpoint|bool:
+        try:
+            with open(filename) as f:
+                endpoint_data = json.load(f)
+        except Exception as e:
+            print("An error occured when trying to create endpoint:", e)
+            return False
+        endpoint_type = endpoint_data["endpoint_type"]
+        params = endpoint_data["params"]
+        res = ENDPOINTS[endpoint_type](**params)
+        return res
 
 

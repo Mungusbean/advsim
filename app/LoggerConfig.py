@@ -1,21 +1,32 @@
 import logging
 
 def setup_logger(name=None):
-    # Create a logger with the given name (or root if none)
     logger = logging.getLogger(name)
-    logger.setLevel(logging.DEBUG)  # Set the minimum log level
+    logger.setLevel(logging.DEBUG)
 
-    # Create console handler and set level to debug
     handler = logging.StreamHandler()
     handler.setLevel(logging.DEBUG)
 
-    # Create formatter and add it to the handler
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
+    class CustomFormatter(logging.Formatter):
+        level_colors = {
+            logging.DEBUG: "\033[36m",  # Cyan
+            logging.INFO: "\033[32m",   # Green
+            logging.WARNING: "\033[33m",  # Yellow
+            logging.ERROR: "\033[31m",  # Red
+            logging.CRITICAL: "\033[35;1m",  # Bright Magenta
+        }
+        reset = "\033[0m"  # Reset color
 
-    # Add the handler to the logger
-    if not logger.handlers:  # Avoid adding multiple handlers if imported in multiple places
+        def format(self, record):
+            log_color = self.level_colors.get(record.levelno, self.reset)
+            original_format = '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            formatter = logging.Formatter(f"{log_color}{original_format}{self.reset}")
+            return formatter.format(record)
+
+    # Add the custom formatter to the handler
+    handler.setFormatter(CustomFormatter())
+
+    if not logger.handlers:
         logger.addHandler(handler)
-    
-    return logger
 
+    return logger
