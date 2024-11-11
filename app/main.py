@@ -2,7 +2,7 @@ import flet as ft
 import utils.endpoints.endpoint as ep
 import ui_components.components as ui
 import ui_components.popup_components as uipopup
-import utils.utilfunctions as uf
+import utils.utilfunctions as ufuncs
 from LoggerConfig import setup_logger
 
 ICON_ROUTES = {"/": ft.Icon(ft.icons.HOME), 
@@ -16,9 +16,6 @@ logger = setup_logger(__name__)
 def main(page: ft.Page) -> None:
     page.title = "ADVSim" # Sets first page title
 
-    # Set up 
-
-
     # Instantiate global UI components
     chat_tab = ui.ChatTab(LLM=None, Chat_title="No Chat Selected", auto_scroll=True) # instantiates the singleton chat interface object 
     chat_tab.auto_scroll = True # Allows the chat to auto scroll to latest message sent, when interacting with the chat UI.
@@ -31,7 +28,7 @@ def main(page: ft.Page) -> None:
 
     # Testing tab adding functionaility
     for i in range(20):
-        nav_bar.add_ChatTab(f"Title {i}", f"Description {i}")
+        nav_bar.add_NavTab(f"Title {i}", f"Description {i}")
     # ================================
     
     # print("objects initialised")

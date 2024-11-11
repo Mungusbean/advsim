@@ -1,10 +1,14 @@
 import flet as ft
 import utils.endpoints.endpoint as ep
+import ui_components.popup_components as  uipopup
 from typing import Any, Callable, List, Optional, Sequence
 from langchain.llms.base import LLM
 # from langchain.chains import LLMChain, ConversationChain
 from langchain.memory import ConversationBufferMemory
 from utils.endpoints.endpoint import Save_New_Endpoint
+from LoggerConfig import setup_logger
+
+logger = setup_logger(__name__)
 
 class ChatBubble(ft.Card):
     def __init__(self, is_user:bool, id: str | None = None, text: str | None = None, margin: int | float | ft.Margin | None = None, elevation: int | float | None = 0, color: str | None = None, shadow_color: str | None = None, surface_tint_color: str | None = None, shape: ft.OutlinedBorder | None = ft.RoundedRectangleBorder(radius=10), clip_behavior: ft.ClipBehavior | None = None, is_semantic_container: bool | None = None, show_border_on_foreground: bool | None = None, variant: ft.CardVariant | None = None, ref: ft.Ref | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end = None, tooltip: str | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, key: str | None = None, adaptive: bool | None = None):
@@ -221,11 +225,11 @@ class sideNavBar(ft.NavigationDrawer):
     
     def toggle_light_dark(self, e):
             self.reference_Page.theme_mode = ft.ThemeMode.DARK if not self.Navigations.controls[0].controls[1].value else ft.ThemeMode.LIGHT # toggles between light and dark
-            self.Navigations.controls[0].controls[0] = ft.Icon(ft.icons.DARK_MODE, size=24, color=ft.colors.GREEN_400) if not self.Navigations.controls[0].controls[1].value else ft.Icon(ft.icons.LIGHT_MODE, size=24) # type: ignore toggles between light and dark icon symbols
-            self.Navigations.controls[0].controls[1].label = "Dark mode" if not self.Navigations.controls[0].controls[1].value else "Light Mode"
+            self.Navigations.controls[0].controls[0] = ft.Icon(ft.icons.DARK_MODE, size=24, color=ft.colors.GREEN_400) if not self.Navigations.controls[0].controls[1].value else ft.Icon(ft.icons.LIGHT_MODE, size=24) # type: ignore // toggles between light and dark icon symbols
+            self.Navigations.controls[0].controls[1].label = "Dark mode" if not self.Navigations.controls[0].controls[1].value else "Light Mode" # toggles the text between 
             self.reference_Page.update()
 
-    def delete_ChatTab(self, event: ft.ControlEvent) -> bool:
+    def delete_NavTab(self, event: ft.ControlEvent) -> bool:
         """Removes an elements from the NavBar class's navigations list
 
         Args:
@@ -236,14 +240,14 @@ class sideNavBar(ft.NavigationDrawer):
         """
         try:
             self.tabs.controls.remove(event.control.parent.parent) # removing the selected tab from the navigation drawer
-            print("Sucessfully deleted tab")
+            logger.info("Sucessfully deleted tab")
             self.tabs.update()
             return True
         except Exception as e:
-            print(f"Could not delete tab due to: {e}")
+            logger.warning(f"Could not delete tab due to: {e}")
             return False
 
-    def add_ChatTab(self, title: str, description: str) -> bool:
+    def add_NavTab(self, title: str, description: str) -> bool:
         """Adds a new tab to the navigation drawer for access later. Tabs are used to hold specific model setups.
         Returns True if sucessfully added tab else returns False
 
@@ -252,15 +256,17 @@ class sideNavBar(ft.NavigationDrawer):
             description (str): short ddesceription for tab to be added.
         """
         try:
-            delete_button = ft.IconButton(icon=ft.icons.DELETE,
-                                          on_click= self.delete_ChatTab) # type: ignore (I'm doing some bad stuff with flet objects rn)
-            tile=ft.ExpansionTile(title= ft.Text(title),
-                                        affinity= ft.TileAffinity.PLATFORM,
-                                        controls= [ft.Row(controls=[
-                                            ft.Text(description),
-                                            delete_button
-                                        ])]
-                                        )
+            # delete_button = ft.IconButton(icon=ft.icons.DELETE,
+            #                               on_click= self.delete_NavTab) # type: ignore (I'm doing some bad stuff with flet objects rn)
+            # tile=ft.ExpansionTile(title= ft.Text(title),
+            #                             affinity= ft.TileAffinity.PLATFORM,
+            #                             controls= [ft.Row(controls=[
+            #                                 ft.Text(description),
+            #                                 delete_button
+            #                             ])]
+            #                             )
+            tile = IconListTile(Title=title, Subtitle=description, on_click= lambda _: print("implement loading of chattab."))
+            tile.delete_button.on_click = self.delete_NavTab
 
             self.tabs.controls.append(tile) # appending the tile to nav controls (no need to update page as the entire navigation drawer is event based and not added directly to a page)
             return True
@@ -282,6 +288,7 @@ class IconListTile(ft.Container):
                  *args, 
                  Title: str = "Title", 
                  Subtitle: str = "Subtitle", 
+                 details = None,
                  icons: str = ft.icons.CODE, 
                  Title_size: int = 16, 
                  Subtitle_size: int = 12,
@@ -294,27 +301,61 @@ class IconListTile(ft.Container):
                  **kwargs):
         self.default_bgcolor = f"{ft.colors.SURFACE_VARIANT},0.3"
         if not bgcolor: bgcolor = self.default_bgcolor 
-        self.icon = ft.Icon(icons)
-        self.Subtitle_color = Subtitle_color if Subtitle_color else ft.colors.GREY_400
-        self.content = ft.Row(controls=[
+        self.icon: ft.Icon = ft.Icon(icons)
+        self.Subtitle_color: str = Subtitle_color if Subtitle_color else ft.colors.GREY_400
+        self.delete_button: ft.IconButton = ft.IconButton(icon=ft.icons.DELETE) # delete button's functionality needs to be implmented by case
+        self.content: ft.Row = ft.Row(controls=[
             ft.Icon(icons),
             ft.Column(controls=[ft.Text(Title, color=Title_color, size=Title_size), ft.Text(Subtitle, color=self.Subtitle_color, size=Subtitle_size)], spacing=0, expand=True),
-            ft.IconButton(icon=ft.icons.DELETE)
+            self.delete_button 
         ])
         super().__init__(*args, content=self.content, bgcolor=bgcolor, padding=5, on_click=on_click, on_hover=self.__on_hover, border_radius=border_radius, tooltip=tooltip,**kwargs)
 
-    def __on_hover(self, e):
-        e.control.bgcolor = self.default_bgcolor if e.data == "false" else ft.colors.ON_PRIMARY
-        e.control.update()
+    def __on_hover(self, event: ft.ControlEvent):
+        event.control.bgcolor = self.default_bgcolor if event.data == "false" else ft.colors.ON_PRIMARY
+        event.control.update()
+
+
+class EndpointDisplay(ft.Card):
+    def __init__(self, *args, **kwargs):
+        self.none_selected = ft.Text("No endpoint selected", text_align=ft.TextAlign.CENTER)
+        self.content = ft.Container(
+            content = ft.Column(
+                controls = [
+                    ft.Row(controls=[ft.TextButton(text="Select Endpoint"), ft.TextButton("Exit")])
+                ]
+            ),
+            padding = 10,
+            expand= True
+        )
+        super().__init__(*args, content=self.content, expand=True, **kwargs)
+    
+    def display_endpoint(self, selection):
+        pass
+    
+    def reset_display(self):
         pass
 
-
-    pass
 
 class EndpointsUI(ft.Column):
     def __init__(self, page: ft.Page, *args, **kwargs):
         self.button_size = 88
         self.button_color = ft.colors.SURFACE_VARIANT
+        self.page = page
+        self.available_endpoints = []
+
+
+        self.endpoints_list = ft.ListView(controls=[],
+                                          spacing=5, 
+                                          padding=10)
+        # for testing 
+        self.ilt1 = IconListTile(on_click=lambda _: print("icon tile 1 clicked"))
+        self.ilt2 = IconListTile(on_click=lambda _: print("icon tile 2 clicked"))
+        self.ilt1.delete_button.on_click = self.remove_endpoint_tile
+        self.ilt2.delete_button.on_click = self.remove_endpoint_tile
+        self.endpoints_list.controls.extend([self.ilt1, self.ilt2])
+        # for testing 
+
         self.controls = [
             ft.Row(controls=[
                 ft.FloatingActionButton(icon=ft.icons.ADD, 
@@ -324,7 +365,7 @@ class EndpointsUI(ft.Column):
                                         width=self.button_size, 
                                         bgcolor=self.button_color,
                                         tooltip="Add an endpoint",
-                                        on_click=lambda _: print("Wow, the add endpoint button has been clicked!")),
+                                        on_click=lambda _: self.page.open(uipopup.EndpointSelectionForm())), # type: ignore // page reference will never be None
                 ft.FloatingActionButton(icon=ft.icons.HELP_OUTLINE_ROUNDED, 
                                         elevation=0, 
                                         shape=ft.RoundedRectangleBorder(radius=12), 
@@ -335,32 +376,50 @@ class EndpointsUI(ft.Column):
                                         on_click=lambda _: print("Wow, the help button has been clicked!"))
             ],
             alignment=ft.MainAxisAlignment.CENTER),
-            ft.Column(
-                controls=[
-                ft.TextField(hint_text="Search available endpoints",
-                             border_color=ft.colors.TRANSPARENT,
-                             fill_color=ft.colors.with_opacity(0.5,ft.colors.SURFACE_VARIANT),
-                             filled=True,
-                             border_radius=12,
-                             expand=True),
-                ft.Container(
-                content = ft.ListView(controls=[IconListTile(on_click=lambda _: print("icon tile 1 clicked")), IconListTile(on_click=lambda _: print("icon tile 2 clicked"))],
-                            spacing=5, 
-                            padding=10))],
-                width=800),
+            ft.Row(
+                controls = [ft.Column(
+                                controls=[
+                                ft.TextField(hint_text="Search available endpoints",
+                                            border_color=ft.colors.TRANSPARENT,
+                                            fill_color=ft.colors.with_opacity(0.5,ft.colors.SURFACE_VARIANT),
+                                            filled=True,
+                                            border_radius=12,
+                                            expand=True),
+                                ft.Container(
+                                content = self.endpoints_list)],
+                                width=800),
+                            EndpointDisplay()
+                    ])
         ]
         super().__init__(*args,controls=self.controls, **kwargs)
 
-    def add_endpoint_tile(self) -> bool:
-        return True
+    def add_endpoint_tile(self, title, subtitle, details) -> bool:
+        try:
+            tile = IconListTile(Title=title, Subtitle=subtitle, details=details)
+            tile.delete_button.on_click = self.remove_endpoint_tile
+            self.endpoints_list.controls.append(tile)
+            return True
+        except Exception as e:
+            logger.warning("Unable to create tile:", e)
+            logger.info("Debug Notes:")
+            logger.debug(e)
+            return False
 
-    def remove_endpoint_tile(self) -> bool:
-        return True
+    def remove_endpoint_tile(self, event: ft.ControlEvent) -> bool:
+        try:
+            self.endpoints_list.controls.remove(event.control.parent.parent)
+            logger.info("Removed endpoint tile")
+            self.page.update() # type: ignore
+            return True
+        except Exception as e:
+            logger.warning("could not remove endpoint tile:", e)
+            return False
 
     def search(self, name: str) -> list:
         return list()
     
     def on_click_endpoint_tile(self):
+
         pass
 
 class EditorUI(ft.Row):
