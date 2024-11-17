@@ -23,7 +23,6 @@ def setup_logger(name=None):
             formatter = logging.Formatter(f"{log_color}{original_format}{self.reset}")
             return formatter.format(record)
 
-    # Add the custom formatter to the handler
     handler.setFormatter(CustomFormatter())
 
     if not logger.handlers:

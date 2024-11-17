@@ -5,31 +5,37 @@ import ui_components.popup_components as uipopup
 import utils.utilfunctions as ufuncs
 from LoggerConfig import setup_logger
 
+# Setup
 ICON_ROUTES = {"/": ft.Icon(ft.icons.HOME), 
                "/Chat":ft.Icon(ft.icons.CHAT), 
                "/Editor":ft.Icon(ft.icons.EDIT), 
                "/Endpoints":ft.Icon(ft.icons.CELL_TOWER),
+               "/Configuration":ft.Icon(ft.icons.BUILD_CIRCLE_ROUNDED),
                "/Settings":ft.Icon(ft.icons.SETTINGS)} 
 
-logger = setup_logger(__name__)
+logger = setup_logger(__name__) # Creates the logger for the main flet application
+ufuncs.create_masterkey() # Attempts to create a masterkey
 
 def main(page: ft.Page) -> None:
     page.title = "ADVSim" # Sets first page title
 
-    # Instantiate global UI components
-    chat_tab = ui.ChatTab(LLM=None, Chat_title="No Chat Selected", auto_scroll=True) # instantiates the singleton chat interface object 
+    # Instantiate global components and add them to the page session
+    last_time_click: list
+    chat_tab: ui.ChatTab
+    app_bar: ft.AppBar
+    nav_bar: ui.sideNavBar
+
+    page.session.set( "last_time_click", last_time_click:= [0]) # time keeper for detecting double clicks
+    page.session.set( "chat_tab", chat_tab:= ui.ChatTab(LLM=None, Chat_title="No Chat Selected", auto_scroll=True)) # instantiates the global singleton chat interface object 
     chat_tab.auto_scroll = True # Allows the chat to auto scroll to latest message sent, when interacting with the chat UI.
-    nav_bar = ui.sideNavBar(reference_Page = page)
-    app_bar = ft.AppBar(title=None, bgcolor=ft.colors.SURFACE_VARIANT)
+    page.session.set( "app_bar", app_bar:= ft.AppBar(title=None, bgcolor=ft.colors.SURFACE_VARIANT)) # global appbar
+    page.session.set( "nav_bar", nav_bar:= ui.sideNavBar(reference_Page = page)) # global nav_bar
+
+    
 
     # Populating the nav bar with routing buttons 
     for route, icon in ICON_ROUTES.items():
         nav_bar.add_NavButton(ui.NavigationButton(page=page, Route=route, Icon=icon, Text=(route[1:] if route[1:] else "Home")))
-
-    # Testing tab adding functionaility
-    for i in range(20):
-        nav_bar.add_NavTab(f"Title {i}", f"Description {i}")
-    # ================================
     
     # print("objects initialised")
     logger.info("objects initialised")
@@ -61,7 +67,7 @@ def main(page: ft.Page) -> None:
                             app_bar,
                             ft.Column(
                                 controls=[ft.Container(content=(chat_tab), expand=True, padding=10, border=None),
-                                          ui.inputBar(page=page, chat_tab=chat_tab)  # Fixed height at the bottom
+                                          ft.Container(content = ui.inputBar(page=page, chat_tab=chat_tab), border_radius=24, bgcolor=ft.colors.SURFACE_VARIANT, padding=0, alignment=ft.alignment.center)  # Fixed height at the bottom
                                 ],
                                 expand=True)  # The column expands to take up the entire page height
                         ]

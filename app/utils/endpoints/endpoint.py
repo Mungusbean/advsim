@@ -1,5 +1,4 @@
 import requests
-import json
 import secrets
 from abc import ABC, abstractmethod
 
@@ -7,10 +6,11 @@ from abc import ABC, abstractmethod
 class Endpoint(ABC):
     def __init__(self, API_key: str|None, 
                  endpoint_url:str|None, 
+                 deployment_id: str|None, 
                  max_retries: int = 3,
                  max_tokens: int = 300,
-                 deployment_id: str|None = None, 
                  API_version: str|None = None, 
+                 temperature: float = 1.0,
                  system_prompt: str = "") -> None:
         
         self.API_key: str|None = API_key
@@ -96,12 +96,12 @@ class AzureEndpoint(Endpoint):
     Args:
         :API_Key (str): Endpoint's API key
         :endpoint_url (str): deployment url
-        :deployment_id (str): defaults to "gpt4"
+        :deployment_id (str): deployment id 
         :API_version (str): defaults to "2023-05-15"
         :system_prompt (str): defaults to "" (empty string)
     """
-    def __init__(self, *args, API_version="2023-05-15", deployment_id="gpt4", **kwargs) -> None:
-        super().__init__(*args, API_version=API_version, deployment_id=deployment_id,**kwargs)
+    def __init__(self, *args, API_version="2023-05-15", **kwargs) -> None:
+        super().__init__(*args, API_version=API_version, **kwargs)
 
 
     # implemented get_url method of super class
@@ -160,39 +160,6 @@ class GeneralEndpoint(Endpoint):
     # should be edited to allow a modified payload template to be defined.
     def create_payload(self, prompt: str) -> dict:
         return super().create_payload(prompt)
-    
-def Save_New_Endpoint(name,
-                      endpoint_type,
-                      API_key,
-                      endpoint_url,
-                      max_retries,
-                      max_tokens,
-                      deployment_id,
-                      API_version,
-                      system_prompt):
-    data = {"endpoint_type": endpoint_type}
-    filename = name + ".json"
-    params = {"API_key": API_key, 
-              "endpoint_url": endpoint_url,
-              "max_retries": max_retries,
-              "max_tokens": max_tokens,
-              "deployment_id": deployment_id,
-              "API_version": API_version,
-              "system_prompt": system_prompt}
-    data["params"] = params
-    with open(filename, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False, indent=4)
-
-
-# def load_endpoint(file_name: str) -> Endpoint:
-#     with open(file_name) as f:
-#         endpoint_data = json.load(f)
-#         endpoint_type = endpoint_data["endpoint_type"]
-#         API_key = endpoint_data["API_key"]
-#         endpoint_url = endpoint_data["url"] 
-#         res: Endpoint
-#         res = ENDPOINTS[endpoint_type](API_key=API_key, endpoint_url=endpoint_url)
-#     return res
 
 
 ENDPOINTS = {
