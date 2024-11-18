@@ -86,7 +86,7 @@ class ChatTab(ft.ListView):
                            )]
             controls.insert(int(role), 
                                 ft.Container(
-                                    content=ft.CircleAvatar(content=ft.Text(role_name), bgcolor=ft.colors.PURPLE_200 if role else ft.colors.AMBER_200),
+                                    content=ft.CircleAvatar(content=ft.Text(role_name, color=ft.colors.SURFACE), bgcolor=ft.colors.PURPLE_200 if role else ft.colors.AMBER_200),
                                     alignment=ft.alignment.top_center  # Aligns avatar at the top
                                     ) # type: ignore
                             ) 
@@ -115,7 +115,7 @@ class inputBar(ft.Row):
     Args:
         ft (_type_): Input bar for manual testing of the model. Allows users to type prompts and test attack modules by sending them to the model.
     """
-    def __init__(self, page: ft.Page, chat_tab: ChatTab, alignment: ft.MainAxisAlignment | None = None, vertical_alignment: ft.CrossAxisAlignment | None = None, spacing: int | float | None = None, tight: bool | None = None, wrap: bool | None = None, run_spacing: int | float | None = None, scroll: ft.ScrollMode | None = None, auto_scroll: bool | None = None, on_scroll_interval: int | float | None = None, on_scroll: Callable[[ft.OnScrollEvent], None] | None = None, ref: ft.Ref | None = None, key: str | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end: Callable[[ft.ControlEvent], None] | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, rtl: bool | None = None, adaptive: bool | None = None):
+    def __init__(self, page: ft.Page, alignment: ft.MainAxisAlignment | None = None, vertical_alignment: ft.CrossAxisAlignment | None = None, spacing: int | float | None = None, tight: bool | None = None, wrap: bool | None = None, run_spacing: int | float | None = None, scroll: ft.ScrollMode | None = None, auto_scroll: bool | None = None, on_scroll_interval: int | float | None = None, on_scroll: Callable[[ft.OnScrollEvent], None] | None = None, ref: ft.Ref | None = None, key: str | None = None, width: int | float | None = None, height: int | float | None = None, left: int | float | None = None, top: int | float | None = None, right: int | float | None = None, bottom: int | float | None = None, expand: None | bool | int = None, expand_loose: bool | None = None, col: dict[str, int | float] | int | float | None = None, opacity: int | float | None = None, rotate: int | float | ft.Rotate | None = None, scale: int | float | ft.Scale | None = None, offset: ft.Offset | tuple[float | int, float | int] | None = None, aspect_ratio: int | float | None = None, animate_opacity: bool | int | ft.Animation | None = None, animate_size: bool | int | ft.Animation | None = None, animate_position: bool | int | ft.Animation | None = None, animate_rotation: bool | int | ft.Animation | None = None, animate_scale: bool | int | ft.Animation | None = None, animate_offset: bool | int | ft.Animation | None = None, on_animation_end: Callable[[ft.ControlEvent], None] | None = None, visible: bool | None = None, disabled: bool | None = None, data: Any = None, rtl: bool | None = None, adaptive: bool | None = None):
         self.submit_button: ft.IconButton = ft.IconButton(icon= ft.icons.ARROW_UPWARD_ROUNDED,
                                                           icon_color=ft.colors.GREY_400,
                                                           icon_size=36,
@@ -141,8 +141,11 @@ class inputBar(ft.Row):
                                                       on_change= self.__toggle_submit_button, # type: ignore
                                                       on_submit= self.send_to_LLM # type: ignore
                                                       )
+        self.chat_settings_button: ft.IconButton = ft.IconButton(icon=ft.icons.SETTINGS,on_click=lambda _: print("settings buttons clicked!")) #TODO: implement the settings tab
+        self.page = page
+        chat_tab: ChatTab = self.page.session.get("chat_tab") # type: ignore
         self.chat_tab: ChatTab = chat_tab
-        controls: list[ft.Control] = [self.new_message, self.submit_button]
+        controls: list[ft.Control] = [self.chat_settings_button, self.new_message, self.submit_button]
         # self.page: ft.Page = page
         super().__init__(controls, alignment, vertical_alignment, spacing, tight, wrap, run_spacing, scroll, auto_scroll, on_scroll_interval, on_scroll, ref, key, width, height, left, top, right, bottom, expand, expand_loose, col, opacity, rotate, scale, offset, aspect_ratio, animate_opacity, animate_size, animate_position, animate_rotation, animate_scale, animate_offset, on_animation_end, visible, disabled, data, rtl, adaptive)
 
@@ -200,19 +203,23 @@ class inputBar(ft.Row):
 class NavigationButton(ft.MenuItemButton):
         def __init__(self, page: ft.Page, Route: str, Icon: ft.Icon=ft.Icon(ft.icons.ABC), Text: str="Button", Text_size: int=16, *args, **kwargs):
             super().__init__(leading = Icon, content=ft.Text(Text, size=Text_size), on_click=lambda _: page.go(Route),*args, **kwargs)
-
             
 class sideNavBar(ft.NavigationDrawer):
     def __init__(
         self,
-        reference_Page: ft.Page,
+        page: ft.Page,
         controls: List[ft.Control] | None = None,
         **kwargs
     ):
-        self.reference_Page = reference_Page
+        self.page: ft.Page = page
         self.Navigations = ft.ListView(
             controls=[
-                ft.Row(controls=[ft.Icon(ft.icons.LIGHT_MODE, size=24),ft.CupertinoSwitch(label="Light mode", value=True, on_change=self.toggle_light_dark, track_color=ft.colors.GREEN_400)], spacing=5)
+                ft.Row(controls=[ft.Icon(ft.icons.LIGHT_MODE if self.page.theme_mode is ft.ThemeMode.LIGHT else ft.icons.DARK_MODE, 
+                                         size=24,
+                                         color=None if self.page.theme_mode is ft.ThemeMode.LIGHT else ft.colors.GREEN_400),
+                                 ft.CupertinoSwitch(label="Light mode" if self.page.theme_mode is ft.ThemeMode.LIGHT else "Dark mode", value=self.page.theme_mode is ft.ThemeMode.LIGHT, 
+                                                    on_change=self.toggle_light_dark, track_color=ft.colors.GREEN_400)], 
+                       spacing=5)
             ],
             padding=20,
             spacing = 5
@@ -226,10 +233,10 @@ class sideNavBar(ft.NavigationDrawer):
         )
     
     def toggle_light_dark(self, e):
-            self.reference_Page.theme_mode = ft.ThemeMode.DARK if not self.Navigations.controls[0].controls[1].value else ft.ThemeMode.LIGHT # toggles between light and dark
+            self.page.theme_mode = ft.ThemeMode.DARK if not self.Navigations.controls[0].controls[1].value else ft.ThemeMode.LIGHT # toggles between light and dark
             self.Navigations.controls[0].controls[0] = ft.Icon(ft.icons.DARK_MODE, size=24, color=ft.colors.GREEN_400) if not self.Navigations.controls[0].controls[1].value else ft.Icon(ft.icons.LIGHT_MODE, size=24) # type: ignore // toggles between light and dark icon symbols
             self.Navigations.controls[0].controls[1].label = "Dark mode" if not self.Navigations.controls[0].controls[1].value else "Light Mode" # toggles the text between 
-            self.reference_Page.update()
+            self.page.update()
     
     def add_NavButton(self, NavButton: NavigationButton) -> bool:
         try:
@@ -283,12 +290,14 @@ class IconListTile(ft.Container):
             event.control.update()
 
 class EndpointDisplay(ft.Card):
-    def __init__(self, *args, **kwargs):
+    def __init__(self, page, *args, **kwargs):
+        self.__current_endpoint = ft.Text(value="No endpoint selected")
+        self.page: ft.Page = page
         self.__none_selected = ft.Text("No endpoint selected", text_align=ft.TextAlign.CENTER, height=300)
         self.content = ft.Container(
                                     content = ft.Column(
                                                 controls = [
-                                                    ft.Row( controls=[ft.FilledTonalButton(icon=ft.icons.CHECK_CIRCLE, text="Use this Endpoint", on_click=lambda _: print("Use endpoint clicked!")), 
+                                                    ft.Row( controls=[ft.FilledTonalButton(icon=ft.icons.CHECK_CIRCLE, text="Use this Endpoint", on_click=self.__handle_use_endpoint_click), 
                                                                       ft.FilledTonalButton(icon=ft.icons.SAVE_AS_ROUNDED, text="Save Edits", on_click=lambda _: print("Save endpoint clicked!")),
                                                                       ft.FilledTonalButton(icon=ft.icons.ADD_CIRCLE, text="Save New", on_click=lambda _: print("Save new button clicked!"))
                                                                       ], 
@@ -299,16 +308,79 @@ class EndpointDisplay(ft.Card):
                                     padding = 10,
                                     expand= True)
         super().__init__(*args, content=self.content, expand=True, **kwargs)
-    
+
+
     def display_endpoint(self, selected_endpoint: str):
         # get selected endpoint's data
-        data = ufuncs.load_endpoint_data(filename=selected_endpoint)
-        self.content.content.controls[-1] = ft.Text("temp", height=300) # type: ignore
+        if not (data := ufuncs.load_endpoint_data(filename=selected_endpoint)): 
+            logger.warning("Could not load endpoint.")
+            return
+        print(data)
+        self.display = ft.Column()
+        self.data = data
+        params: dict = data["params"] # type: ignore
+        endpoint_name = data["endpoint_name"] # type: ignore
+        width = 480
+        new_display = ft.Container(content = ft.Column(spacing=5, height=600))
+        self.content.content.controls[-1] = new_display # type: ignore
+        endpoint_name_textfield = ft.TextField(hint_text="Required", 
+                                                value=endpoint_name, 
+                                                bgcolor=ft.colors.SURFACE_VARIANT, 
+                                                border_radius=8, 
+                                                border_color=ft.colors.TRANSPARENT, 
+                                                max_lines=1)
+        filename_textfield = ft.TextField(hint_text="Required", 
+                                value=selected_endpoint.split("_")[0], 
+                                bgcolor=ft.colors.SURFACE_VARIANT, 
+                                border_radius=8, 
+                                border_color=ft.colors.TRANSPARENT, 
+                                max_lines=1)
+        new_display.content.controls.append(ft.Row(controls=[ft.Text("filename", expand=True), filename_textfield], width=width)) # type: ignore
+        new_display.content.controls.append(ft.Row(controls=[ft.Text("endpoint name", expand=True), endpoint_name_textfield], width=width)) # type: ignore
+        for param, value in params.items():
+            hint_text = "Optional*"
+            text_value = value 
+            if value:
+                if value == "Required":
+                    hint_text = value
+                    text_value = None
+                else:
+                    hint_text = "Required"
+            is_sys_prompt = param=="system_prompt"
+            text_feild = ft.TextField(hint_text=hint_text, 
+                                      value=text_value, 
+                                      bgcolor=ft.colors.SURFACE_VARIANT, 
+                                      border_radius=8, 
+                                      border_color=ft.colors.TRANSPARENT, 
+                                      multiline=is_sys_prompt, 
+                                      max_lines=2 if is_sys_prompt else 1)
+            new_display.content.controls.append(ft.Row(controls=[ft.Text(param.replace("_"," "), expand=True), text_feild], width=width)) # type: ignore
         self.update()
+    
+    def __handle_use_endpoint_click(self, e: ft.ControlEvent):
+        try:
+            if isinstance(self.content.content.controls[-1], ft.Text): #type: ignore
+                return
+            self.page.session.set("selected_endpoint", self.data) # Put the selected endpoint into the session storage
+            self.__reset_display(text="Endpoint has been set!", text_colour=ft.colors.GREEN_300) # Display a message to indicate successful loading of endpoint into session
+        except Exception as error:
+            logger.warning(f"An error occured when trying to set endpoint: {error}")
+            self.__reset_display(text="Could not set endpoint.", text_colour=ft.colors.RED_300) # Display a message to indicate that endpoint has not been set due to an error
+        self.page.update()
+    
+    def __handle_save_edits_click(self):
+        filename = ""
+        base_dir = os.path.dirname(__file__)
+        file_path = os.path.join(base_dir, "../../appdata/saved_endpoints/" + filename)
+        with open("w", file_path) as f:
+            pass
+        pass
+
+    def __handle_save_new_click(self):
         pass
     
-    def reset_display(self):
-        self.content.content.controls[-1] = self.__none_selected # type: ignore
+    def __reset_display(self, text: str|None  = None, text_colour: str|None = None):
+        self.content.content.controls[-1] = self.__none_selected if not text else ft.Text(text, color=text_colour, text_align=ft.TextAlign.CENTER, height=300)# type: ignore
 
 class EndpointsUI(ft.Column):
     def __init__(self, page: ft.Page, *args, **kwargs):
@@ -323,7 +395,7 @@ class EndpointsUI(ft.Column):
                                        expand=True,
                                        on_change=self.__search,
                                        on_submit=self.__search)
-        self.endpoint_display_card = EndpointDisplay()
+        self.endpoint_display_card = EndpointDisplay(page=self.page)
         self.endpoints_list = ft.ListView(controls=[],
                                           spacing=5, 
                                           padding=10)
@@ -346,7 +418,7 @@ class EndpointsUI(ft.Column):
                                         width=self.button_size, 
                                         bgcolor=self.button_color,
                                         tooltip="Help",
-                                        on_click=lambda _: print("Wow, the help button has been clicked!"))
+                                        on_click=lambda _: print("Wow, the help button has been clicked!")) #TODO: implement the help button to explain what to do 
             ],
             alignment=ft.MainAxisAlignment.CENTER),
             ft.Row(

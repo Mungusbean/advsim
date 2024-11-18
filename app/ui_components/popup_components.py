@@ -28,10 +28,10 @@ class EndpointSelectionForm(ft.AlertDialog):
     def handle_select(self, e: ft.ControlEvent):
         key = e.control.title.value.lower() # Gets the name of the endpoint to be used as the key
         endpoint_class = ep.ENDPOINTS[key] # Gets the class ref from key
-        info: dict = ufuncs.get_params(endpoint_class) # Gets the params of the class to populate the form
-        print(info) # Change this to a logger
+        params: dict = ufuncs.get_params(endpoint_class) # Gets the params of the class to populate the form
+        # print(info) # Change this to a logger
         endpoint_form = EndpointForm(page=self.page, endpoint_ui=self.endpoint_ui, Title= "Create " + e.control.title.value + " Endpoint", endpoint_name=key)
-        endpoint_form.populate_form(info)
+        endpoint_form.populate_form(params)
         self.page.open(endpoint_form) 
         self.page.close(self)
         pass

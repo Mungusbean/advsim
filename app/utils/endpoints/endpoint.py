@@ -1,7 +1,9 @@
 import requests
 import secrets
 from abc import ABC, abstractmethod
+from LoggerConfig import setup_logger
 
+logger = setup_logger(__name__)
 
 class Endpoint(ABC):
     def __init__(self, API_key: str|None, 
@@ -65,7 +67,7 @@ class Endpoint(ABC):
     @system_prompt.setter
     def system_prompt(self, new_sys_prompt):
         if isinstance(new_sys_prompt, str): self.__system_prompt = new_sys_prompt
-        else: print(f"invalid type for system prompt: {type(new_sys_prompt)}")
+        else: logger.warning(f"invalid type for system prompt: {type(new_sys_prompt)}")
 
     def make_request(self, prompt: str) -> dict| int:
         """
@@ -80,12 +82,12 @@ class Endpoint(ABC):
                 response = requests.post(self.get_url(), headers=self.get_headers(), json=payload)
                 # print("headers:", self.get_headers())
                 # print("payload:", payload)
-                print(f"attempting to send request {i} to {self.get_url()}")
+                logger.info(f"attempting to send request {i} to {self.get_url()}")
                 if response.status_code == 200: break
             response.raise_for_status()  
             return response.json()
         except Exception as e:
-            print(f"ERROR: {e}")
+            logger.warning(f"ERROR: {e}")
             return False # status code errors will be handled before being sent out
 
 

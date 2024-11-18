@@ -21,7 +21,7 @@ ENV/
 appdata/saved_endpoints/*
 !appdata/saved_endpoints/.gitkeep
 
-# ignore all saved chats from ebign pushed 
+# ignore all saved chats from being pushed 
 appdata/chat_history/*
 !appdata/chat_history/.gitkeep
 
