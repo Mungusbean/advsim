@@ -109,7 +109,7 @@ class ChatTab(ft.ListView):
     def clear_chat(self):
         pass
 
-class inputBar(ft.Row):
+class ChatInputBar(ft.Row):
     """_summary_
 
     Args:
@@ -142,7 +142,7 @@ class inputBar(ft.Row):
                                                       on_submit= self.send_to_LLM # type: ignore
                                                       )
         self.chat_settings_button: ft.IconButton = ft.IconButton(icon=ft.icons.SETTINGS,on_click=lambda _: print("settings buttons clicked!")) #TODO: implement the settings tab
-        self.page = page
+        self.page: ft.Page = page
         chat_tab: ChatTab = self.page.session.get("chat_tab") # type: ignore
         self.chat_tab: ChatTab = chat_tab
         controls: list[ft.Control] = [self.chat_settings_button, self.new_message, self.submit_button]
@@ -159,7 +159,7 @@ class inputBar(ft.Row):
         self.update()
 
 
-    def send_to_LLM(self, e) -> None:
+    def send_to_LLM(self, e) -> None: 
         """
         Sends the value of the text feild to the LLM 
 
@@ -170,6 +170,9 @@ class inputBar(ft.Row):
             _type_: None
         """
         if self.chat_tab.LLM is None:
+            self.page.open(ft.AlertDialog(icon=ft.Icon(ft.icons.WARNING_AMBER_ROUNDED), title=ft.Text("No Endpoint Detected"), content=ft.Text("please select an endpoint.")))
+            self.new_message.value = ""
+            self.update()
             return
         # Check if the TextField value is None or empty
         if not self.new_message.value or not self.new_message.value.strip():
@@ -214,11 +217,13 @@ class sideNavBar(ft.NavigationDrawer):
         self.page: ft.Page = page
         self.Navigations = ft.ListView(
             controls=[
-                ft.Row(controls=[ft.Icon(ft.icons.LIGHT_MODE if self.page.theme_mode is ft.ThemeMode.LIGHT else ft.icons.DARK_MODE, 
+                ft.Row(controls=[ft.Icon( ft.icons.DARK_MODE if self.page.theme_mode is ft.ThemeMode.DARK else ft.icons.LIGHT_MODE, 
                                          size=24,
-                                         color=None if self.page.theme_mode is ft.ThemeMode.LIGHT else ft.colors.GREEN_400),
-                                 ft.CupertinoSwitch(label="Light mode" if self.page.theme_mode is ft.ThemeMode.LIGHT else "Dark mode", value=self.page.theme_mode is ft.ThemeMode.LIGHT, 
-                                                    on_change=self.toggle_light_dark, track_color=ft.colors.GREEN_400)], 
+                                         color=ft.colors.GREEN_400 if self.page.theme_mode is ft.ThemeMode.DARK else None),
+                                 ft.CupertinoSwitch(label="Dark mode" if self.page.theme_mode is ft.ThemeMode.DARK else "Light mode", 
+                                                    value=self.page.theme_mode is not ft.ThemeMode.DARK, 
+                                                    on_change=self.toggle_light_dark, 
+                                                    track_color=ft.colors.GREEN_400)], 
                        spacing=5)
             ],
             padding=20,
@@ -315,7 +320,6 @@ class EndpointDisplay(ft.Card):
         if not (data := ufuncs.load_endpoint_data(filename=selected_endpoint)): 
             logger.warning("Could not load endpoint.")
             return
-        print(data)
         self.display = ft.Column()
         self.data = data
         params: dict = data["params"] # type: ignore
@@ -362,7 +366,7 @@ class EndpointDisplay(ft.Card):
             if isinstance(self.content.content.controls[-1], ft.Text): #type: ignore
                 return
             self.page.session.set("selected_endpoint", self.data) # Put the selected endpoint into the session storage
-            self.__reset_display(text="Endpoint has been set!", text_colour=ft.colors.GREEN_300) # Display a message to indicate successful loading of endpoint into session
+            self.__reset_display(text="Endpoint has been set!", text_colour=ft.colors.SURFACE_CONTAINER_HIGHEST) # Display a message to indicate successful loading of endpoint into session
         except Exception as error:
             logger.warning(f"An error occured when trying to set endpoint: {error}")
             self.__reset_display(text="Could not set endpoint.", text_colour=ft.colors.RED_300) # Display a message to indicate that endpoint has not been set due to an error

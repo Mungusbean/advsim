@@ -23,7 +23,7 @@ class EndpointSelectionForm(ft.AlertDialog):
         self.actions = [ft.ListView(spacing=5)]
         for name in ep.ENDPOINTS.keys():
             self.actions[0].controls.append(ft.ListTile(title=ft.Text(name.capitalize(), text_align=ft.TextAlign.CENTER), bgcolor=ft.colors.SURFACE_VARIANT, on_click=self.handle_select)) # type: ignore
-        super().__init__(*args, title=ft.Text("Endpoint types", text_align=ft.TextAlign.CENTER), actions=self.actions, shape=ft.RoundedRectangleBorder(radius=10), **kwargs)
+        super().__init__(*args, title=ft.Text("Available Endpoints", text_align=ft.TextAlign.CENTER), actions=self.actions, shape=ft.RoundedRectangleBorder(radius=10), **kwargs)
     
     def handle_select(self, e: ft.ControlEvent):
         key = e.control.title.value.lower() # Gets the name of the endpoint to be used as the key
@@ -43,6 +43,7 @@ class EndpointForm(ft.AlertDialog):
         ft (_type_): _description_
     """
     def __init__(self, page: ft.Page, endpoint_ui, Title: str, endpoint_name: str, *args, **kwargs):
+        self.info: dict|None = None
         self.page: ft.Page = page # reference to the original page
         self.endpoint_ui = endpoint_ui # reference to the endpoint ui object in the page
         self.endpoint_name = endpoint_name
@@ -51,19 +52,25 @@ class EndpointForm(ft.AlertDialog):
         self.content = ft.Column(controls=[ft.Row(controls=[ft.Text("filename", expand=True), self.name_field], width=460)], spacing=5)
         super().__init__(*args, title=ft.Text(Title, text_align=ft.TextAlign.CENTER, size=28), actions=self.actions, content=self.content, modal=True,**kwargs)
 
-    def validate_fields(self, text_fields) -> bool:
+    def __validate_fields(self, text_fields) -> bool:
         for row in text_fields:
             if row.controls[1].hint_text == "Required" and not row.controls[1].value:
                 return False
         return True
+    
+    def __enforce_and_format_types(self, value, type: str):
+        #TODO: ensures casts the value to type and formats it appropriately: string should be stripped of leading and trailing whitespaces
+        return value
 
     def handle_submit(self, event: ft.ControlEvent):
         print(form:=event.control.parent) # gets the obj reference of the alert dialog form that appears
         text_fields = form.content.controls[1:] # gets the list of textfeilds in the alert dialog
-        if not self.validate_fields(text_fields): return
+        if not self.__validate_fields(text_fields): return
         name: str = self.name_field.value + "_" + self.endpoint_name # type: ignore validate_fields should prevent name from being None
         try:
-            params = {row.controls[0].value.replace(" ","_") : row.controls[1].value for row in text_fields}
+            # row.controls[0].value.replace(" ","_") -> the actual name of the class parameter (e.g "API_key")
+            # self.__enforce_and_format_types(value=row.controls[1].value -> the value of the parameter
+            params = {row.controls[0].value.replace(" ","_") : self.__enforce_and_format_types(value=row.controls[1].value, type=None) for row in text_fields}
             print(params)
             ufuncs.Save_New_Endpoint_data(name=name, endpoint_name=self.endpoint_name, params=params)
             self.endpoint_ui.add_endpoint_tile(title=self.name_field.value, subtitle=self.endpoint_name)
@@ -76,6 +83,7 @@ class EndpointForm(ft.AlertDialog):
             pass
 
     def populate_form(self, info: dict):
+        self.info = info
         param: str
         for param, value in info.items():
             if param == "args" or param == "kwargs": continue

@@ -14,7 +14,7 @@ from langchain_core.runnables import RunnableWithMessageHistory, RunnableLambda
 # Setup
 ICON_ROUTES = {"/": ft.Icon(ft.icons.HOME), 
                "/Chat":ft.Icon(ft.icons.CHAT), 
-               "/Editor":ft.Icon(ft.icons.EDIT), 
+               "/Test":ft.Icon(ft.icons.EDIT), 
                "/Endpoints":ft.Icon(ft.icons.CELL_TOWER),
                "/Configuration":ft.Icon(ft.icons.BUILD_CIRCLE_ROUNDED),
                "/Settings":ft.Icon(ft.icons.SETTINGS)} 
@@ -38,16 +38,17 @@ def main(page: ft.Page) -> None:
     page.session.set("last_time_click", last_time_click:= [0]) # time keeper for detecting double clicks, a list is used as a global mutable object to be changed
     page.session.set("chat_tab", chat_tab:= ui.ChatTab(LLM=None, Chat_title="No Chat Selected", auto_scroll=True)) # instantiates the global singleton chat interface object 
     chat_tab.auto_scroll = True # Allows the chat to auto scroll to latest message sent, when interacting with the chat UI.
-    page.session.set("nav_bar", nav_bar:= ui.sideNavBar(page = page)) # global nav_bar
+    nav_bar = ui.sideNavBar(page = page) # global nav_bar
     page.session.set("app_bar", app_bar:= ft.AppBar(title=None, bgcolor=ft.colors.SURFACE_VARIANT)) # global appbar
     chat_tab.auto_scroll = True
+
+    logger.info("objects initialised") # log the 
+    logger.info("Set global objects into sessions")
 
     # Populating the nav bar with routing buttons 
     for route, icon in ICON_ROUTES.items():
         nav_bar.add_NavButton(ui.NavigationButton(page=page, Route=route, Icon=icon, Text=(route[1:] if route[1:] else "Home")))
     
-    # print("objects initialised")
-    logger.info("objects initialised")
 
     # Note to self: please, PLEASE find a better way to do this, this is horrible
     def route_change(e: ft.RouteChangeEvent) -> None:
@@ -78,7 +79,7 @@ def main(page: ft.Page) -> None:
                     # for key, val in params.items():
                     #     print(f"{key} : {val} -> type: ({type(val)})")
 
-                    llm = RequestsLLM().create_endpoint(endpoint_type=endpoint_details["endpoint_name"], params=params)
+                    llm = RequestsLLM().create_endpoint(endpoint_type=endpoint_details["endpoint_name"], params=params) # Create the llm connection with the appropriate endpoint set in the session
                     prompt = ChatPromptTemplate.from_messages(
                         [
                             MessagesPlaceholder(variable_name="history"),
@@ -86,15 +87,14 @@ def main(page: ft.Page) -> None:
                         ]
                     )
 
-                    # New memory implementation
-                    store = {}
+                    store = {} #TODO: instead of creating an empty dictionary, load one from a json that has been saved 
                     def get_session_history(session_id: str) -> BaseChatMessageHistory:
                         if session_id not in store:
                             store[session_id] = ChatMessageHistory()
                         return store[session_id]
 
 
-                    runnable = prompt | llm 
+                    runnable = prompt | llm #TODO: this should be created dynamically depending on the set config
 
                     LLM_conversation = RunnableWithMessageHistory(
                         runnable=runnable, # type: ignore
@@ -110,21 +110,21 @@ def main(page: ft.Page) -> None:
                             app_bar,
                             ft.Column(
                                 controls=[ft.Container(content=(chat_tab), expand=True, padding=10, border=None),
-                                          ft.Container(content = ui.inputBar(page=page), border_radius=24, bgcolor=ft.colors.SURFACE_VARIANT, padding=0, alignment=ft.alignment.center)  # Fixed height at the bottom
+                                          ft.Container(content = ui.ChatInputBar(page=page), border_radius=24, bgcolor=ft.colors.SURFACE_VARIANT, padding=0, alignment=ft.alignment.center)  # Fixed height at the bottom
                                 ],
                                 expand=True)  # The column expands to take up the entire page height
                         ]
                     )
                 )
                 
-            case "/Editor":
-                app_bar.title = ft.Text("Editor")
+            case "/Test":
+                app_bar.title = ft.Text("Test")
                 page.views.append(
                     ft.View(
-                        route= "/Editor",
+                        route= "/Test",
                         controls = [
                             app_bar,
-                            ft.Text("Editor", size=30)
+                            ft.Text("Test", size=30)
                         ],
                         vertical_alignment= ft.MainAxisAlignment.CENTER,
                         horizontal_alignment= ft.CrossAxisAlignment.CENTER,

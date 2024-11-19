@@ -69,7 +69,7 @@ class Endpoint(ABC):
         if isinstance(new_sys_prompt, str): self.__system_prompt = new_sys_prompt
         else: logger.warning(f"invalid type for system prompt: {type(new_sys_prompt)}")
 
-    def make_request(self, prompt: str) -> dict| int:
+    def make_request(self, prompt: str) -> dict| int: #TODO: create an async version of this using asyncio
         """
         Make the request to the language model API and return the response.
         
