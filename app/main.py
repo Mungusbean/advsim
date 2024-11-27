@@ -28,13 +28,22 @@ def main(page: ft.Page) -> None:
     # Instantiate global components and add them to the page session, the global variables can be acessed by passing a the page reference to any of the releveant functions or objects
     session_settings: dict = dict() # loads the settings saved by the user
     selected_endpoint: dict = {}
-    last_time_click: list
+    last_time_click: list[float]
     chat_tab: ui.ChatTab
     app_bar: ft.AppBar
     nav_bar: ui.sideNavBar
 
-    page.session.set("session_settings",  session_settings)
-    page.session.set("selected_endpoint", selected_endpoint)
+    store = {} #TODO: instead of creating an empty dictionary, load one from a pickled object 
+    #TODO: the store can be created here but we do have to ensure that this is changed each time a new endpoint is picked and the chat page is refreshed for a new start
+    #TODO: get session history to store a tuple of the chatmessagehistory object and chattab for the display. and amend the return to only return the chatmessage history object. 
+    #TODO: we also have to modify the way that chattab gets the prompt. it should be put through the config first and sent to both the chattab and the LLM within 
+    def get_session_history(session_id: str) -> BaseChatMessageHistory:
+        if session_id not in store:
+            store[session_id] = ChatMessageHistory()
+        return store[session_id]
+
+    page.session.set("session_settings",  session_settings) # sets the user session settings into page session for blobal reference and use
+    page.session.set("selected_endpoint", selected_endpoint) # sets the selected endpoint for manual chat into the session
     page.session.set("last_time_click", last_time_click:= [0]) # time keeper for detecting double clicks, a list is used as a global mutable object to be changed
     page.session.set("chat_tab", chat_tab:= ui.ChatTab(LLM=None, Chat_title="No Chat Selected", auto_scroll=True)) # instantiates the global singleton chat interface object 
     chat_tab.auto_scroll = True # Allows the chat to auto scroll to latest message sent, when interacting with the chat UI.
@@ -42,7 +51,7 @@ def main(page: ft.Page) -> None:
     page.session.set("app_bar", app_bar:= ft.AppBar(title=None, bgcolor=ft.colors.SURFACE_VARIANT)) # global appbar
     chat_tab.auto_scroll = True
 
-    logger.info("objects initialised") # log the 
+    logger.info("objects initialised") # log the successful initialisation and setting of the objects into session
     logger.info("Set global objects into sessions")
 
     # Populating the nav bar with routing buttons 
@@ -70,31 +79,23 @@ def main(page: ft.Page) -> None:
 
         match page.route:
             case "/Chat":
+                selected_endpoint = None
                 if page.session.get("selected_endpoint"):
                     app_bar.title = ft.Text("Chat")
                     endpoint_details: dict = page.session.get("selected_endpoint") # type: ignore
                     params = endpoint_details["params"]
-
-                    # # for debugging
-                    # for key, val in params.items():
-                    #     print(f"{key} : {val} -> type: ({type(val)})")
+                    endpoint_name = endpoint_details["endpoint_name"]
 
                     llm = RequestsLLM().create_endpoint(endpoint_type=endpoint_details["endpoint_name"], params=params) # Create the llm connection with the appropriate endpoint set in the session
-                    prompt = ChatPromptTemplate.from_messages(
+                    template = ChatPromptTemplate.from_messages(
                         [
                             MessagesPlaceholder(variable_name="history"),
                             ("human", "{input}"),
                         ]
                     )
 
-                    store = {} #TODO: instead of creating an empty dictionary, load one from a json that has been saved 
-                    def get_session_history(session_id: str) -> BaseChatMessageHistory:
-                        if session_id not in store:
-                            store[session_id] = ChatMessageHistory()
-                        return store[session_id]
 
-
-                    runnable = prompt | llm #TODO: this should be created dynamically depending on the set config
+                    runnable = template | llm #TODO: this should be created dynamically depending on the set config
 
                     LLM_conversation = RunnableWithMessageHistory(
                         runnable=runnable, # type: ignore
@@ -108,6 +109,7 @@ def main(page: ft.Page) -> None:
                         route = "/Chat", 
                         controls= [
                             app_bar,
+                            ft.Row(controls=[ft.Text(value=str(page.session.get("selected_endpoint").get("filename")), theme_style=ft.TextThemeStyle.TITLE_LARGE, color=ft.colors.GREY_400)],), # type: ignore // nested dictionary cannot be accessed by pylance 
                             ft.Column(
                                 controls=[ft.Container(content=(chat_tab), expand=True, padding=10, border=None),
                                           ft.Container(content = ui.ChatInputBar(page=page), border_radius=24, bgcolor=ft.colors.SURFACE_VARIANT, padding=0, alignment=ft.alignment.center)  # Fixed height at the bottom

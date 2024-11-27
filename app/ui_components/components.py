@@ -1,11 +1,9 @@
 import flet as ft
 import os
-import utils.endpoints.endpoint as ep
 import utils.utilfunctions as ufuncs
 import ui_components.popup_components as  uipopup
+import utils.endpoints.endpoint as ep
 from typing import Any, Callable, List, Optional, Sequence
-from langchain.llms.base import LLM
-from langchain.memory import ConversationBufferMemory
 from LoggerConfig import setup_logger
 
 logger = setup_logger(__name__)
@@ -190,7 +188,9 @@ class ChatInputBar(ft.Row):
         self.chat_tab.add_bubble(role=False, text=None); self.chat_tab.update() # Add loading bubble while waiting for the API to return the response.
 
         # response = self.chat_tab.LLM_info.predict(input=prompt)
-        # TODO: PLEASE CONFIGURE THIS PROPERLY
+        # TODO: PLEASE CONFIGURE THIS PROPERLY -> a side pipe should be added before passing the modified user's prompt to the text bubble before adding it. (line 187)
+        # TODO: If the above is not implemented, the user will not be able to see how their prompt is mutated and templated from the suffix.
+        # TODO: Session ID can remain the chat title.
         response = self.chat_tab.LLM.invoke(
             {"input": prompt},
             config = {"configurable": {"session_id":  self.chat_tab.Chat_title}}
@@ -298,31 +298,37 @@ class EndpointDisplay(ft.Card):
     def __init__(self, page, *args, **kwargs):
         self.__current_endpoint = ft.Text(value="No endpoint selected")
         self.page: ft.Page = page
-        self.__none_selected = ft.Text("No endpoint selected", text_align=ft.TextAlign.CENTER, height=300)
+        self.none_selected = ft.Text("No endpoint selected", text_align=ft.TextAlign.CENTER, height=300)
         self.content = ft.Container(
                                     content = ft.Column(
                                                 controls = [
                                                     ft.Row( controls=[ft.FilledTonalButton(icon=ft.icons.CHECK_CIRCLE, text="Use this Endpoint", on_click=self.__handle_use_endpoint_click), 
-                                                                      ft.FilledTonalButton(icon=ft.icons.SAVE_AS_ROUNDED, text="Save Edits", on_click=lambda _: print("Save endpoint clicked!")),
+                                                                      ft.FilledTonalButton(icon=ft.icons.SAVE_AS_ROUNDED, text="Save Edits", on_click=self.__handle_save_edits_click),
                                                                       ft.FilledTonalButton(icon=ft.icons.ADD_CIRCLE, text="Save New", on_click=lambda _: print("Save new button clicked!"))
                                                                       ], 
                                                             alignment=ft.MainAxisAlignment.CENTER),
-                                                    self.__none_selected], 
+                                                    self.none_selected], 
                                                 horizontal_alignment=ft.CrossAxisAlignment.CENTER,
                                                 alignment=ft.MainAxisAlignment.CENTER,),
                                     padding = 10,
                                     expand= True)
+        
         super().__init__(*args, content=self.content, expand=True, **kwargs)
 
+    @property
+    def display(self):
+        return self.content.content.controls[-1] # type: ignore
 
     def display_endpoint(self, selected_endpoint: str):
         # get selected endpoint's data
         if not (data := ufuncs.load_endpoint_data(filename=selected_endpoint)): 
             logger.warning("Could not load endpoint.")
             return
-        self.display = ft.Column()
+        # self.display = ft.Column()
         self.data = data
-        params: dict = data["params"] # type: ignore
+        filename = selected_endpoint.split("_")[0]
+        data["filename"] = filename # type: ignore
+        self.params: dict = data["params"] # type: ignore
         endpoint_name = data["endpoint_name"] # type: ignore
         width = 480
         new_display = ft.Container(content = ft.Column(spacing=5, height=600))
@@ -334,14 +340,16 @@ class EndpointDisplay(ft.Card):
                                                 border_color=ft.colors.TRANSPARENT, 
                                                 max_lines=1)
         filename_textfield = ft.TextField(hint_text="Required", 
-                                value=selected_endpoint.split("_")[0], 
+                                value=filename, 
                                 bgcolor=ft.colors.SURFACE_VARIANT, 
                                 border_radius=8, 
                                 border_color=ft.colors.TRANSPARENT, 
                                 max_lines=1)
         new_display.content.controls.append(ft.Row(controls=[ft.Text("filename", expand=True), filename_textfield], width=width)) # type: ignore
         new_display.content.controls.append(ft.Row(controls=[ft.Text("endpoint name", expand=True), endpoint_name_textfield], width=width)) # type: ignore
-        for param, value in params.items():
+        for param, value in self.params.items():
+            is_sys_prompt = param=="system_prompt"
+            is_APIkey = param=="API_key"
             hint_text = "Optional*"
             text_value = value 
             if value:
@@ -350,40 +358,56 @@ class EndpointDisplay(ft.Card):
                     text_value = None
                 else:
                     hint_text = "Required"
-            is_sys_prompt = param=="system_prompt"
             text_feild = ft.TextField(hint_text=hint_text, 
                                       value=text_value, 
                                       bgcolor=ft.colors.SURFACE_VARIANT, 
                                       border_radius=8, 
                                       border_color=ft.colors.TRANSPARENT, 
                                       multiline=is_sys_prompt, 
-                                      max_lines=2 if is_sys_prompt else 1)
+                                      max_lines=2 if is_sys_prompt else 1,
+                                      password=is_APIkey,
+                                      can_reveal_password=is_APIkey
+                                      )
             new_display.content.controls.append(ft.Row(controls=[ft.Text(param.replace("_"," "), expand=True), text_feild], width=width)) # type: ignore
         self.update()
     
     def __handle_use_endpoint_click(self, e: ft.ControlEvent):
         try:
-            if isinstance(self.content.content.controls[-1], ft.Text): #type: ignore
+            if isinstance(self.content.content.controls[-1], ft.Text): #type: ignore // ft.text will be the default flet control showing if there is no endpoint being displayed
                 return
             self.page.session.set("selected_endpoint", self.data) # Put the selected endpoint into the session storage
-            self.__reset_display(text="Endpoint has been set!", text_colour=ft.colors.SURFACE_CONTAINER_HIGHEST) # Display a message to indicate successful loading of endpoint into session
+            self.reset_display(text="Endpoint has been set!", text_colour=ft.colors.SURFACE_TINT) # Display a message to indicate successful loading of endpoint into session
         except Exception as error:
             logger.warning(f"An error occured when trying to set endpoint: {error}")
-            self.__reset_display(text="Could not set endpoint.", text_colour=ft.colors.RED_300) # Display a message to indicate that endpoint has not been set due to an error
+            self.reset_display(text="Could not set endpoint.", text_colour=ft.colors.RED_300) # Display a message to indicate that endpoint has not been set due to an error
         self.page.update()
     
-    def __handle_save_edits_click(self):
+    def __handle_save_edits_click(self, e: ft.ControlEvent):
         filename = ""
         base_dir = os.path.dirname(__file__)
         file_path = os.path.join(base_dir, "../../appdata/saved_endpoints/" + filename)
-        with open("w", file_path) as f:
-            pass
-        pass
+        # self.content.content.controls[-1].content.controls -> refers to the list of row controls which hold the textfeilds. (very messy as I did not create a reference to the display)
+        textfields = self.content.content.controls[-1].content.controls # type: ignore // This is the controls of the column object: A list that holds the rows of textfeilds of the display
+        logger.info(f"{textfields}")
+        logger.info(f"{self.params}")
+        params = {}
+        filename = textfields[0].controls[-1].value
+        endpoint_name = textfields[1].controls[-1].value
+        req_params = ufuncs.get_params(ep.ENDPOINTS[endpoint_name]) # get the required endpoint params for the endepoint type
+        for row in textfields[2:]: # start from index 2 as we do not want to iterate through filename and endpoint name.
+            param_name: str =  row.controls[0].value 
+            textfeild: ft.TextField = row.controls[-1]
+            key = param_name.replace(" ","_")
+            params[key] = ufuncs.enforce_and_format_types(value=textfeild.value, expected_type=req_params[key][1]) # type:ignore
+        
+        # Update the endpoint data (self.data) to reflect the edits
+
+        # delete the old save and save self.data as the new replaced endpoint definition 
 
     def __handle_save_new_click(self):
         pass
     
-    def __reset_display(self, text: str|None  = None, text_colour: str|None = None):
+    def reset_display(self, text: str|None  = None, text_colour: str|None = None):
         self.content.content.controls[-1] = self.__none_selected if not text else ft.Text(text, color=text_colour, text_align=ft.TextAlign.CENTER, height=300)# type: ignore
 
 class EndpointsUI(ft.Column):
@@ -458,6 +482,7 @@ class EndpointsUI(ft.Column):
             tile: IconListTile = event.control.parent.parent
             filename = tile.Title + "_" + tile.Subtitle + ".json"
             base_dir = os.path.dirname(__file__)
+
             file_path = os.path.join(base_dir, "../../appdata/saved_endpoints/" + filename)
             if ufuncs.delete_file(file_path): # if the file can be deleted (then go on to remove the tile) else (just leave it, as it should be removed on the next page load)
                 self.endpoints_list.controls.remove(tile)
@@ -490,11 +515,12 @@ class EndpointsUI(ft.Column):
                 logger.warning("Could not load tile due to incorrect filename:",e)
     
     def __handle_endpoint_tile_click(self, event: ft.ControlEvent):
+        double_clicked = ufuncs.detect_double_click(page=self.page)
         tile: IconListTile = event.control
-        ufuncs.detect_double_click(page=self.page)
         filename = tile.Title + "_" + tile.Subtitle
         self.endpoint_display_card.display_endpoint(filename)
-        pass
+        if double_clicked:
+            self.endpoint_display_card._EndpointDisplay__handle_use_endpoint_click(e=None) # type: ignore // just reusing the endpoint display class method to set the endpoint
 
     def __search(self, event: ft.ControlEvent):
         filter_name = self.search_bar.value
@@ -502,7 +528,7 @@ class EndpointsUI(ft.Column):
         self.__populate_endpoint_list(filter_name)
         self.update()
     
-class EditorUI(ft.Row):
+class ConfigUI(ft.Row):
     def __init__(self, *args, **kwargs):
         self.controls = []
         super().__init__(*args, controls=self.controls, **kwargs)
@@ -524,4 +550,24 @@ class EditorUI(ft.Row):
     
     def remove_defence_module(self, defence_module_name: str) -> bool:
         return True
+
+class testUI(ft.Column):
+    def __init__(self, page: ft.Page, *args, **kwargs):
+        self.page = page
+        controls = []
+        super().__init__(*args, controls=controls, **kwargs)
     
+    def __load_config(self):
+        pass
+
+    def __gather_endpoints(self):
+        pass
+
+    def __load_endpoints(self):
+        pass
+
+    def __handle_select_dataset(self):
+        pass
+
+    def __handle_use_endpoints(self):
+        pass

@@ -12,6 +12,8 @@ class BaseAttackModule(Runnable, ABC):
         self.name = name
         self.description = description 
         super().__init__()
+    
+    
 
 
 

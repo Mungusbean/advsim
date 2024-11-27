@@ -1,6 +1,7 @@
 import flet as ft
 import utils.endpoints.endpoint as ep
 import utils.utilfunctions as ufuncs
+from typing import get_origin, get_args, Union
 from LoggerConfig import setup_logger
 
 logger = setup_logger(__file__)
@@ -9,11 +10,11 @@ class GeneralPopUp(ft.AlertDialog):
     pass
 
 class ConfirmationForm(ft.AlertDialog):
-    def __init__(self, *args, **kwargs):
-        super().__init__(title=ft.Text("Confirm choice"), *args, **kwargs)
-    pass
-
-class PopupMenu(ft.AlertDialog):
+    def __init__(self, *args, title=None, message=None, **kwargs):
+        actions =[ft.FilledTonalButton(text="Confirm"), ft.FilledTonalButton(text="Cancel")]
+        title = title if title else ft.Text("Confirm choice")
+        controls = [ft.Text(message if message else "Please confirm your choice.")]
+        super().__init__(title=title, *args, **kwargs)
     pass
 
 class EndpointSelectionForm(ft.AlertDialog):
@@ -29,11 +30,11 @@ class EndpointSelectionForm(ft.AlertDialog):
         key = e.control.title.value.lower() # Gets the name of the endpoint to be used as the key
         endpoint_class = ep.ENDPOINTS[key] # Gets the class ref from key
         params: dict = ufuncs.get_params(endpoint_class) # Gets the params of the class to populate the form
-        # print(info) # Change this to a logger
+        logger.info(f"class arguments and parameters: {params}") 
         endpoint_form = EndpointForm(page=self.page, endpoint_ui=self.endpoint_ui, Title= "Create " + e.control.title.value + " Endpoint", endpoint_name=key)
-        endpoint_form.populate_form(params)
-        self.page.open(endpoint_form) 
-        self.page.close(self)
+        endpoint_form.populate_form(params) # dynamically populates the endpoitn form popup with the required class parameters
+        self.page.open(endpoint_form)  # displays the popup form
+        self.page.close(self) # explicitly closing the current popup form just incase
         pass
 
 class EndpointForm(ft.AlertDialog):
@@ -43,59 +44,65 @@ class EndpointForm(ft.AlertDialog):
         ft (_type_): _description_
     """
     def __init__(self, page: ft.Page, endpoint_ui, Title: str, endpoint_name: str, *args, **kwargs):
-        self.info: dict|None = None
+        self.req_params: dict|None = None
         self.page: ft.Page = page # reference to the original page
         self.endpoint_ui = endpoint_ui # reference to the endpoint ui object in the page
         self.endpoint_name = endpoint_name
         self.actions = [ft.TextButton(text="+ Add", on_click=self.handle_submit), ft.TextButton(text="- Discard", on_click=lambda _: self.page.close(self))]
         self.name_field = ft.TextField(hint_text="Required (filename of endpoint)", bgcolor=ft.colors.SURFACE_VARIANT, border_radius=8, border_color=ft.colors.TRANSPARENT)
-        self.content = ft.Column(controls=[ft.Row(controls=[ft.Text("filename", expand=True), self.name_field], width=460)], spacing=5)
+        self.content: ft.Column = ft.Column(controls=[ft.Row(controls=[ft.Text("filename", expand=True), self.name_field], width=460)], spacing=5)
         super().__init__(*args, title=ft.Text(Title, text_align=ft.TextAlign.CENTER, size=28), actions=self.actions, content=self.content, modal=True,**kwargs)
 
+
     def __validate_fields(self, text_fields) -> bool:
-        for row in text_fields:
-            if row.controls[1].hint_text == "Required" and not row.controls[1].value:
-                return False
-        return True
+        res = True
+        for text_field in text_fields:
+            if text_field.controls[1].hint_text == "Required" and not text_field.controls[1].value: # if the text field has the hint required and the text field is not populated 
+                text_field.controls[1].hint_style = ft.TextStyle(color=ft.colors.RED_300)
+                self.update()
+                res = False
+        return res
     
-    def __enforce_and_format_types(self, value, type: str):
-        #TODO: ensures casts the value to type and formats it appropriately: string should be stripped of leading and trailing whitespaces
-        return value
+    # def __enforce_and_format_types(self, value, expected_type):
+    #     """
+    #     Ensures the value is cast to the expected type and formats it appropriately.
+    #     Strings are stripped of leading/trailing whitespace. Handles optional types or missing type hints.
+    #     """
+    #     # Handle cases where no type hint is provided
+    #     if expected_type == "Any" or expected_type is None:
+    #         return value  # No casting applied
 
-    def handle_submit(self, event: ft.ControlEvent):
-        print(form:=event.control.parent) # gets the obj reference of the alert dialog form that appears
-        text_fields = form.content.controls[1:] # gets the list of textfeilds in the alert dialog
-        if not self.__validate_fields(text_fields): return
-        name: str = self.name_field.value + "_" + self.endpoint_name # type: ignore validate_fields should prevent name from being None
-        try:
-            # row.controls[0].value.replace(" ","_") -> the actual name of the class parameter (e.g "API_key")
-            # self.__enforce_and_format_types(value=row.controls[1].value -> the value of the parameter
-            params = {row.controls[0].value.replace(" ","_") : self.__enforce_and_format_types(value=row.controls[1].value, type=None) for row in text_fields}
-            print(params)
-            ufuncs.Save_New_Endpoint_data(name=name, endpoint_name=self.endpoint_name, params=params)
-            self.endpoint_ui.add_endpoint_tile(title=self.name_field.value, subtitle=self.endpoint_name)
-            self.endpoint_ui.update()
-            self.page.close(self)
-            self.page.open(ft.AlertDialog(content=ft.Row(controls=[ft.Icon(ft.icons.CHECK_CIRCLE, color=ft.colors.GREEN_300), ft.Text("Successfully saved endpoint!")])))
-        except Exception as e:
-            logger.warning("Could not save endpoint due to:")
-            print(e)
-            pass
+    #     # Handle Union types (e.g., str | None)
+    #     origin = get_origin(expected_type)
+    #     args = get_args(expected_type)
+    #     if origin is Union and type(None) in args:
+    #         if value is None or value == "": # If the value is None, return it as is
+    #             return None
+    #         non_none_type = next(arg for arg in args if arg is not type(None)) # Find the first non-None type in the Union and cast value to the type 
+    #         expected_type = non_none_type
 
+    #     try:
+    #         value = expected_type(value) # Attempt to cast the value to the expected type
+    #         if expected_type is str:
+    #             value = value.strip() # If the expected type is string, strip whitespace
+    #         return value
+    #     except (ValueError, TypeError) as e:
+    #         raise ValueError(f"Cannot cast {value} to {expected_type}: {e}")
+    
     def populate_form(self, info: dict):
-        self.info = info
-        param: str
-        for param, value in info.items():
-            if param == "args" or param == "kwargs": continue
+        self.req_params = info
+        arg: str
+        for arg, value_type in info.items():
+            if arg == "args" or arg == "kwargs": continue
             hint_text = "Optional*"
-            text_value = value 
-            if value:
-                if value == "Required":
-                    hint_text = value
+            text_value = value_type[0] 
+            if value_type[0]:
+                if value_type[0] == "Required":
+                    hint_text = value_type[0]
                     text_value = None
                 else:
                     hint_text = "Required"
-            is_sys_prompt = param=="system_prompt"
+            is_sys_prompt = arg=="system_prompt"
             text_feild = ft.TextField(hint_text=hint_text, 
                                       value=text_value, 
                                       bgcolor=ft.colors.SURFACE_VARIANT, 
@@ -103,5 +110,29 @@ class EndpointForm(ft.AlertDialog):
                                       border_color=ft.colors.TRANSPARENT, 
                                       multiline=is_sys_prompt, 
                                       max_lines=2 if is_sys_prompt else 1)
-            self.content.controls.append(ft.Row(controls=[ft.Text(param.replace("_"," "), expand=True), text_feild], width=460)) #type: ignore
+            self.content.controls.append(ft.Row(controls=[ft.Text(arg.replace("_"," "), expand=True), text_feild], width=460)) #type: ignore
+
+    def handle_submit(self, event: ft.ControlEvent):
+        print(form:=event.control.parent) # gets the obj reference of the alert dialog form that appears
+        print(self.req_params)
+        text_fields = form.content.controls[1:] # gets the list of textfeilds in the alert dialog
+        if not self.__validate_fields(text_fields): return
+        name: str = ufuncs.sanitize_string(self.name_field.value, add_filter_characters="_") + "_" + self.endpoint_name # type: ignore validate_fields should prevent name from being None
+        try:
+            # row.controls[0].value.replace(" ","_") -> the actual name of the class parameter (e.g "API_key")
+            # self.__enforce_and_format_types(value=row.controls[1].value -> the value of the parameter cast to the correct values
+            if self.req_params is None: return
+            params = {(key:=row.controls[0].value.replace(" ","_")) : ufuncs.enforce_and_format_types(value=row.controls[1].value, expected_type=self.req_params[key][1]) for row in text_fields} # Creates a params dictionary from the textfeilds in the form
+            # print(params)
+            ufuncs.Save_New_Endpoint_data(name=name, endpoint_name=self.endpoint_name, params=params) # saves the arguments/ parameters and the endpoint type into the defined json format
+            self.endpoint_ui.add_endpoint_tile(title=ufuncs.sanitize_string(self.name_field.value,add_filter_characters="_"), subtitle=self.endpoint_name) # type: ignore
+            self.endpoint_ui.update()
+            self.page.close(self) # 
+            self.page.open(ft.AlertDialog(content=ft.Row(controls=[ft.Icon(ft.icons.CHECK_CIRCLE, color=ft.colors.GREEN_300), ft.Text("Successfully saved endpoint!")])))
+        except Exception as e:
+            logger.warning("Could not save endpoint due to:")
+            print(e)
+            self.page.open(ft.AlertDialog(content=ft.Row(controls=[ft.Icon(ft.icons.ERROR_OUTLINE_ROUNDED, color=ft.colors.RED_300), ft.Text("Endpoint could not be saved.")])))
+            
+
         
