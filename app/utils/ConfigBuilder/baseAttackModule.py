@@ -13,6 +13,12 @@ class BaseAttackModule(Runnable, ABC):
         self.description = description 
         super().__init__()
 
+    @abstractmethod
+    def attack(self, string):
+        pass
+    
+    
+
 
 
     

@@ -15,6 +15,16 @@ ENV/
 .pipenv.lock
 .pipfile.lock
 
+# appdata 
+
+# ignore all saved endpoints from being pushed except the .gitkeep file
+appdata/saved_endpoints/*
+!appdata/saved_endpoints/.gitkeep
+
+# ignore all saved chats from being pushed 
+appdata/chat_history/*
+!appdata/chat_history/.gitkeep
+
 # Temporary files
 *.tmp
 *.temp
@@ -23,6 +33,13 @@ ENV/
 *.log
 *.log.*
 
+# Ignore the master key file in the appdata
+appdata/master.key
+
+# Ignore all .key files anywhere in the repository (as a safety [precaution])
+*.key
+
 # ignore test files
 app/test.py
+app/test2.py
 app/tests/*
