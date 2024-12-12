@@ -1,15 +1,15 @@
 import flet as ft
-import utils.endpoints.endpoint as ep
 import ui_components.components as ui
 import ui_components.popup_components as uipopup
+from utils.ConfigBuilder.PromptConfig import PromptConfig, PromptGuardConfig
 import utils.utilfunctions as ufuncs
 from LoggerConfig import setup_logger
 from utils.LLM.CustomLLM import RequestsLLM
 
 from langchain_community.chat_message_histories import ChatMessageHistory
-from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
+from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder, HumanMessagePromptTemplate
 from langchain_core.chat_history import BaseChatMessageHistory
-from langchain_core.runnables import RunnableWithMessageHistory, RunnableLambda
+from langchain_core.runnables import RunnableWithMessageHistory, RunnableLambda, RunnablePassthrough
 
 # Setup
 ICON_ROUTES = {"/": ft.Icon(ft.icons.HOME), 
@@ -25,9 +25,10 @@ ufuncs.create_masterkey() # Attempts to create a masterkey
 def main(page: ft.Page) -> None:
     page.title = "ADVSim" # Sets first page title
 
-    # Instantiate global components and add them to the page session, the global variables can be acessed by passing a the page reference to any of the releveant functions or objects
+    # Instantiate and declare global components and add them to the page session, the global variables can be acessed by passing a the page reference to any of the releveant functions or objects
     session_settings: dict = dict() # loads the settings saved by the user
     selected_endpoint: dict = {}
+    # selected_config: rc.PromptConfig = rc.PromptConfig()
     last_time_click: list[float]
     chat_tab: ui.ChatTab
     app_bar: ft.AppBar
@@ -79,30 +80,43 @@ def main(page: ft.Page) -> None:
 
         match page.route:
             case "/Chat":
-                selected_endpoint = None
+
+                # Change the current llm session
                 if page.session.get("selected_endpoint"):
+                    
                     app_bar.title = ft.Text("Chat")
                     endpoint_details: dict = page.session.get("selected_endpoint") # type: ignore
+                    logger.debug(f"Endpoint details: {endpoint_details}")
                     params = endpoint_details["params"]
                     endpoint_name = endpoint_details["endpoint_name"]
 
-                    llm = RequestsLLM().create_endpoint(endpoint_type=endpoint_details["endpoint_name"], params=params) # Create the llm connection with the appropriate endpoint set in the session
+                    llm = RequestsLLM().create_endpoint(endpoint_type=endpoint_name, params=params) # Create the llm connection with the appropriate endpoint set in the session
                     template = ChatPromptTemplate.from_messages(
                         [
                             MessagesPlaceholder(variable_name="history"),
-                            ("human", "{input}"),
+                            HumanMessagePromptTemplate.from_template("{input}"),
                         ]
                     )
 
+                    #TODO: This should be loaded in from a PKL file and stored in the session storage when used for manual testing. 
+                    #TODO: when used in automated testing on a dataset, the prompt config will be loaded in differently
+                    prompt_config_builder = PromptConfig(name="testy").build_config()
+                    if prompt_config_builder:
+                        prompt_config = prompt_config_builder.config
+                    
+                    else:
+                        prompt_config = RunnablePassthrough()
 
-                    runnable = template | llm #TODO: this should be created dynamically depending on the set config
+                    runnable = prompt_config | template | llm #TODO: this should be created dynamically depending on the set config
 
                     LLM_conversation = RunnableWithMessageHistory(
                         runnable=runnable, # type: ignore
                         get_session_history=get_session_history,
                         input_messages_key="input",
                         history_messages_key="history"
-                    )                
+                    )
+
+
                     chat_tab.LLM = LLM_conversation
                 page.views.append(
                     ft.View(
@@ -176,11 +190,12 @@ def main(page: ft.Page) -> None:
                         controls = [
                             app_bar,
                             ft.Text("Configuration", size=30),
+                            ui.ConfigUI()
                         ],
                         vertical_alignment= ft.MainAxisAlignment.CENTER,
                         horizontal_alignment= ft.CrossAxisAlignment.CENTER,
                         spacing = 26,
-                        scroll=ft.ScrollMode.ALWAYS
+                        # scroll=ft.ScrollMode.ALWAYS
                     )
                 )
 

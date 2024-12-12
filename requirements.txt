@@ -1,8 +1,8 @@
-flet
+flet==0.24.1; python_version == "3.11"
 nltk
+requests
 homoglyphs
 langchain
-langchain-core 
-langchain-community 
-openai
+langchain-core
+langchain-community
 cryptography

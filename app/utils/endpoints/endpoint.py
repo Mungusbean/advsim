@@ -73,13 +73,14 @@ class Endpoint(ABC):
         if isinstance(new_sys_prompt, str): self.__system_prompt = new_sys_prompt
         else: logger.warning(f"invalid type for system prompt: {type(new_sys_prompt)}")
 
-    def make_request(self, prompt: str| ChatPromptValue):
+    def make_request(self, prompt: str| ChatPromptValue, json: bool = False): #TODO: create an async version of this using asyncio
         payload = self.create_payload(prompt)
         for attempt in range(self.max_retries):
             try:
                 response = requests.post(self.get_url(), headers=self.get_headers(), json=payload)
                 logger.info(f"Attempt {attempt + 1} to {self.get_url()}")
                 if response.status_code == 200:
+                    logger.debug(f"sent payload: {payload}")
                     response.raise_for_status()
                     return response.json()
             except requests.exceptions.RequestException as e:
@@ -88,7 +89,7 @@ class Endpoint(ABC):
                     time.sleep(2 ** attempt)  # Exponential backoff
         return False
 
-    # def make_request(self, prompt: str): #TODO: create an async version of this using asyncio
+    # def make_request(self, prompt: str): 
     #     """
     #     Make the request to the language model API and return the response.
         
@@ -110,7 +111,7 @@ class Endpoint(ABC):
     #         return False # status code errors will be handled before being sent out
 
 
-# Endpoint for Azure AI
+# Endpoint for AzureGPT AI
 class AzureEndpoint(Endpoint):
     """_summary_ Creates an endpoint for Azure
 
@@ -163,15 +164,19 @@ class AzureEndpoint(Endpoint):
         # }
         return payload
 
-    def make_request(self, prompt: str):
+    def make_request(self, prompt: str, json: bool = False):
         response = super().make_request(prompt) #TODO: standardise the output of make request to only pass the final response 
         try:
             if not response: return response
             else:
-                return response["choices"][0]["message"]["content"] 
+                return response["choices"][0]["message"]["content"] if not json else response
         except:
             logger.error(f"{response}")
             return False
+
+#TODO: might need to just copy and paste the Azure endpoint into this as the get params util function only checks the last parent which does not get the base endpoint's parameters
+class GPTEndpoint(AzureEndpoint):
+    pass
 
 # Yet to be fully implemented
 class OllamaEndpoint(Endpoint):
@@ -188,15 +193,14 @@ class OllamaEndpoint(Endpoint):
         return headers
 
     def get_url(self) -> str:
-        return self.endpoint_url + "/api/generate"
+        return self.endpoint_url + "/v1/chat/completions"
     
     def create_payload(self, prompt: str) -> dict:
         if isinstance(prompt, ChatPromptValue):
             logger.info("Using ChatPromptValue")
             payload = {
-                'messages': [{"role": self.role_map[message.type], "content": message.content} for message in prompt.messages],
+                'messages': [{"role": "system", "content": self.system_prompt}]+[{"role": self.role_map[message.type], "content": message.content} for message in prompt.messages],
                 'model': self.model,
-                'system': self.system_prompt,
                 'stream': False,
                 'options': {
                     'temperature': self.temperature,
@@ -217,10 +221,16 @@ class OllamaEndpoint(Endpoint):
             }
         return payload
     
-    def make_request(self, prompt: str):
+    def make_request(self, prompt: str, json: bool = False):
         response=super().make_request(prompt)
-        if not response: return response
-        return  response["response"] 
+        print(response)
+        try:
+            if not response: return response
+            else:
+                return response["choices"][0]["message"]["content"] if not json else response
+        except:
+            logger.error(f"{response}")
+            return False
     
 # Yet to be implemented 
 class GeminiEndpoint(Endpoint):
@@ -240,7 +250,9 @@ class GeminiEndpoint(Endpoint):
         }
     
 
-# yet to be implemented
+# yet to be implemented  
+# TODO: there should be a library to parse valid text/str representations of json's into json objects. 
+# TODO: This would allow users to define their own custom headers and payloads to be sent to the LLM. 
 class GeneralEndpoint(Endpoint):
     def __init__(self, *args, **kwargs) -> None:
         super().__init__(*args, **kwargs)
@@ -257,5 +269,6 @@ ENDPOINTS = {
     "general": GeneralEndpoint,
     "gemini": GeminiEndpoint,
     "ollama": OllamaEndpoint,
-    "azure": AzureEndpoint
+    "azure": AzureEndpoint,
+    "gpt": GPTEndpoint
 }

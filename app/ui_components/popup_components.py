@@ -1,4 +1,5 @@
 import flet as ft
+import pickle as pkl
 import utils.endpoints.endpoint as ep
 import utils.utilfunctions as ufuncs
 from typing import get_origin, get_args, Union
@@ -6,15 +7,12 @@ from LoggerConfig import setup_logger
 
 logger = setup_logger(__file__)
 
-class GeneralPopUp(ft.AlertDialog):
-    pass
-
 class ConfirmationForm(ft.AlertDialog):
-    def __init__(self, *args, title=None, message=None, **kwargs):
-        actions =[ft.FilledTonalButton(text="Confirm"), ft.FilledTonalButton(text="Cancel")]
+    def __init__(self, page:ft.Page, func, *args, title=None, message=None, **kwargs):
+        actions =[ft.FilledTonalButton(text="Confirm", on_click=func ), ft.FilledTonalButton(text="Cancel", on_click=lambda _: page.close(self))]
         title = title if title else ft.Text("Confirm choice")
-        controls = [ft.Text(message if message else "Please confirm your choice.")]
-        super().__init__(title=title, *args, **kwargs)
+        content = ft.Text(message if message else "Please confirm your choice.")
+        super().__init__(title=title,  content=content, actions=actions, *args, **kwargs) # type:ignore
     pass
 
 class EndpointSelectionForm(ft.AlertDialog):
@@ -62,33 +60,7 @@ class EndpointForm(ft.AlertDialog):
                 self.update()
                 res = False
         return res
-    
-    # def __enforce_and_format_types(self, value, expected_type):
-    #     """
-    #     Ensures the value is cast to the expected type and formats it appropriately.
-    #     Strings are stripped of leading/trailing whitespace. Handles optional types or missing type hints.
-    #     """
-    #     # Handle cases where no type hint is provided
-    #     if expected_type == "Any" or expected_type is None:
-    #         return value  # No casting applied
 
-    #     # Handle Union types (e.g., str | None)
-    #     origin = get_origin(expected_type)
-    #     args = get_args(expected_type)
-    #     if origin is Union and type(None) in args:
-    #         if value is None or value == "": # If the value is None, return it as is
-    #             return None
-    #         non_none_type = next(arg for arg in args if arg is not type(None)) # Find the first non-None type in the Union and cast value to the type 
-    #         expected_type = non_none_type
-
-    #     try:
-    #         value = expected_type(value) # Attempt to cast the value to the expected type
-    #         if expected_type is str:
-    #             value = value.strip() # If the expected type is string, strip whitespace
-    #         return value
-    #     except (ValueError, TypeError) as e:
-    #         raise ValueError(f"Cannot cast {value} to {expected_type}: {e}")
-    
     def populate_form(self, info: dict):
         self.req_params = info
         arg: str
@@ -119,8 +91,8 @@ class EndpointForm(ft.AlertDialog):
         if not self.__validate_fields(text_fields): return
         name: str = ufuncs.sanitize_string(self.name_field.value, add_filter_characters="_") + "_" + self.endpoint_name # type: ignore validate_fields should prevent name from being None
         try:
-            # row.controls[0].value.replace(" ","_") -> the actual name of the class parameter (e.g "API_key")
-            # self.__enforce_and_format_types(value=row.controls[1].value -> the value of the parameter cast to the correct values
+            # CLARIFICATION: row.controls[0].value.replace(" ","_") -> the actual name of the class parameter (e.g "API_key")
+            # CLARIFICATION: self.__enforce_and_format_types(value=row.controls[1].value -> the value of the parameter cast to the correct values
             if self.req_params is None: return
             params = {(key:=row.controls[0].value.replace(" ","_")) : ufuncs.enforce_and_format_types(value=row.controls[1].value, expected_type=self.req_params[key][1]) for row in text_fields} # Creates a params dictionary from the textfeilds in the form
             # print(params)
