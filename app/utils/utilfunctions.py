@@ -3,6 +3,7 @@ import os
 import json
 import time
 import flet as ft
+import shutil
 import utils.endpoints.endpoint as ep
 from cryptography.fernet import Fernet
 from LoggerConfig import setup_logger
@@ -120,27 +121,51 @@ def get_classes(file_path: str) -> dict:
 
 def get_file_names(dir_path: str) -> list[str]:
     try:
-        return [file for file in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, file)) and (file != ".gitkeep")]
+        # return [file for file in os.listdir(dir_path) if os.path.isfile(os.path.join(dir_path, file)) and (file != ".gitkeep")]
+        return [file for file in os.listdir(dir_path) if (file != ".gitkeep")] # return a list of all items in a directory
     except FileNotFoundError:
         logger.warning(f"The directory {dir_path} does not exist.")
         return []
 
-def delete_file(file_path: str) -> bool:
-    """
-    Deletes a file at the specified path if it exists.
+# def delete_file(file_path: str) -> bool:
+#     """
+#     Deletes a file at the specified path if it exists.
 
-    :param file_path: The path to the file to delete.
+#     :param file_path: The path to the file to delete.
+#     """
+#     try:
+#         if os.path.exists(file_path):  # Check if the file exists
+#             os.remove(file_path)  # Remove the file
+#             logger.info(f"File '{file_path}' has been deleted.")
+#             return True
+#         else:
+#             logger.warning(f"File '{file_path}' does not exist.")
+#             return False
+#     except Exception as e:
+#         logger.warning(f"An error occurred while deleting the file: {e}")
+#         return False
+
+def delete_path(path: str) -> bool:
+    """
+    Deletes a file or directory at the specified path if it exists.
+
+    :param path: The path to the file or directory to delete.
+    :return: True if the path was deleted successfully, False otherwise.
     """
     try:
-        if os.path.exists(file_path):  # Check if the file exists
-            os.remove(file_path)  # Remove the file
-            logger.info(f"File '{file_path}' has been deleted.")
+        if os.path.exists(path):  # Check if the path exists
+            if os.path.isfile(path):  # If it's a file
+                os.remove(path)
+                logger.info(f"File '{path}' has been deleted.")
+            elif os.path.isdir(path):  # If it's a directory
+                shutil.rmtree(path)
+                logger.info(f"Directory '{path}' has been deleted.")
             return True
         else:
-            logger.warning(f"File '{file_path}' does not exist.")
+            logger.warning(f"Path '{path}' does not exist.")
             return False
     except Exception as e:
-        logger.warning(f"An error occurred while deleting the file: {e}")
+        logger.warning(f"An error occurred while deleting '{path}': {e}")
         return False
 
 MASTER_KEY_RELATIVE_PATH = "../../appdata/master.key"
@@ -193,22 +218,32 @@ SAVED_ENDPOINTS_RELATIVE_PATH = "../../appdata/saved_endpoints"
 def Save_New_Endpoint_data(name: str, endpoint_name: str, params: dict):
     try:
         data = {"endpoint_name": endpoint_name}
-        filename = name + ".json"
+        filename = name + ".json" # the json filename that will hold the endpoint's data
 
         data["params"] = params #type: ignore
         base_dir = os.path.dirname(__file__)
-        save_path = os.path.join(base_dir, SAVED_ENDPOINTS_RELATIVE_PATH + "/" +  filename)
-        with open(save_path, "w", encoding="utf-8") as f:
+
+        endpoint_dir_path = os.path.join(base_dir, SAVED_ENDPOINTS_RELATIVE_PATH + "/" + name)
+        os.makedirs(endpoint_dir_path, exist_ok=True) # Create a directory to hold the chats and the endpoint json
+
+        chat_history_dir_path = os.path.join(endpoint_dir_path, "chat_history")
+        os.makedirs(chat_history_dir_path, exist_ok=True) # Create another directory to hold all of the chat_history files
+
+        save_path = os.path.join(endpoint_dir_path, filename) # Save the endpoint json data into the endpoint created endpoint directory
+        with open(save_path, "w", encoding="utf-8") as f: # write the json file to the endpoint directory
             json.dump(data, f, ensure_ascii=False, indent=4)
         logger.info(f"Successfully created {endpoint_name} endppoint  to file {filename}")
+        return True
+    
     except Exception as e:
-        logger.warning("unable to save endpoint:", e)
+        logger.warning(f"unable to save endpoint: {e}")
+        return False
 
-def load_endpoint_data(filename: str) -> dict|bool:
+def load_endpoint_data(name: str) -> dict|bool:
     try:
-        filename = filename + ".json"
+        filename = name + ".json"
         base_dir = os.path.dirname(__file__)
-        selected_endpoint_path = os.path.join(base_dir, SAVED_ENDPOINTS_RELATIVE_PATH + "/" + filename)
+        selected_endpoint_path = os.path.join(base_dir, SAVED_ENDPOINTS_RELATIVE_PATH + "/" + name + "/" + filename)
         with open(selected_endpoint_path) as f:
             endpoint_data = json.load(f)
             return endpoint_data

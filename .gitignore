@@ -19,6 +19,7 @@ ENV/
 
 # ignore all saved endpoints from being pushed except the .gitkeep file
 appdata/saved_endpoints/*
+appdata/saved_endpoints/** 
 !appdata/saved_endpoints/.gitkeep
 
 # ignore all saved chats from being pushed 

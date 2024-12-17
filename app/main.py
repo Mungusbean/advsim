@@ -29,7 +29,7 @@ def main(page: ft.Page) -> None:
     session_settings: dict = dict() # loads the settings saved by the user
     selected_endpoint: dict = {}
     # selected_config: rc.PromptConfig = rc.PromptConfig()
-    last_time_click: list[float]
+    last_time_click: list[float] = [0]
     chat_tab: ui.ChatTab
     app_bar: ft.AppBar
     nav_bar: ui.sideNavBar
@@ -45,7 +45,7 @@ def main(page: ft.Page) -> None:
 
     page.session.set("session_settings",  session_settings) # sets the user session settings into page session for blobal reference and use
     page.session.set("selected_endpoint", selected_endpoint) # sets the selected endpoint for manual chat into the session
-    page.session.set("last_time_click", last_time_click:= [0]) # time keeper for detecting double clicks, a list is used as a global mutable object to be changed
+    page.session.set("last_time_click", last_time_click) # time keeper for detecting double clicks, a list is used as a global mutable object to be changed
     page.session.set("chat_tab", chat_tab:= ui.ChatTab(LLM=None, Chat_title="No Chat Selected", auto_scroll=True)) # instantiates the global singleton chat interface object 
     chat_tab.auto_scroll = True # Allows the chat to auto scroll to latest message sent, when interacting with the chat UI.
     nav_bar = ui.sideNavBar(page = page) # global nav_bar
@@ -123,7 +123,14 @@ def main(page: ft.Page) -> None:
                         route = "/Chat", 
                         controls= [
                             app_bar,
-                            ft.Row(controls=[ft.Text(value=str(page.session.get("selected_endpoint").get("filename")), theme_style=ft.TextThemeStyle.TITLE_LARGE, color=ft.colors.GREY_400)],), # type: ignore // nested dictionary cannot be accessed by pylance 
+                            ft.Container(
+                                content=ft.Row(controls=[ft.Text(value=str(page.session.get("selected_endpoint").get("filename")), theme_style=ft.TextThemeStyle.TITLE_LARGE, color=ft.colors.GREY_400), ft.Icon(ft.icons.EXPAND_CIRCLE_DOWN_OUTLINED, color=ft.colors.GREY_400)], tight=True), # type: ignore // nested dictionary cannot be accessed by pylance 
+                                on_click=lambda _: print("DISPLAY THE CHATSSSSS!"),
+                                tooltip="Select a chat",
+                                ink=True,
+                                border_radius=10,
+                                padding=5
+                            ), 
                             ft.Column(
                                 controls=[ft.Container(content=(chat_tab), expand=True, padding=10, border=None),
                                           ft.Container(content = ui.ChatInputBar(page=page), border_radius=24, bgcolor=ft.colors.SURFACE_VARIANT, padding=0, alignment=ft.alignment.center)  # Fixed height at the bottom

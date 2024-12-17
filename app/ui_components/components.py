@@ -139,7 +139,7 @@ class ChatInputBar(ft.Row):
                                                       on_change= self.__toggle_submit_button, # type: ignore
                                                       on_submit= self.send_to_LLM # type: ignore
                                                       )
-        self.chat_settings_button: ft.IconButton = ft.IconButton(icon=ft.icons.SETTINGS, on_click=lambda _: print("settings buttons clicked!"), icon_color=ft.colors.ON_SURFACE_VARIANT) #TODO: implement the settings tab
+        self.chat_settings_button: ft.IconButton = ft.IconButton(icon=ft.icons.SETTINGS, on_click=lambda _: print("settings buttons clicked!"),icon_color=ft.colors.ON_SURFACE_VARIANT) #TODO: implement the settings tab
         self.page: ft.Page = page 
         self.chat_tab: ChatTab = self.page.session.get("chat_tab") # type: ignore
         controls: list[ft.Control] = [self.chat_settings_button, self.new_message, self.submit_button]
@@ -154,6 +154,9 @@ class ChatInputBar(ft.Row):
         self.submit_button.disabled = disabled_state
         self.submit_button.icon_color = ft.colors.SURFACE_TINT if not disabled_state else ft.colors.GREY_200
         self.update()
+    
+    def __settings_button_on_click(self, e):
+        pass
 
     def send_to_LLM(self, e) -> None: 
         """
@@ -296,14 +299,14 @@ class IconListTile(ft.Container):
             self.content.controls.append(self.delete_button)
         super().__init__(*args, animate_scale=ft.animation.Animation(300, ft.AnimationCurve.EASE_IN_OUT), content=self.content, bgcolor=bgcolor, padding=5, on_click=on_click, on_hover=self.__on_hover, border_radius=border_radius, tooltip=tooltip,**kwargs)
 
-    def __on_hover(self, event: ft.ControlEvent):
-        event.control.bgcolor = self.default_bgcolor if event.data == "false" else ft.colors.ON_PRIMARY
+    def __on_hover(self, e: ft.ControlEvent):
+        e.control.bgcolor = self.default_bgcolor if e.data == "false" else ft.colors.ON_PRIMARY
         if self.elevated_hover:
-            if event.data == "true":  # Mouse entered
+            if e.data == "true":  # Mouse entered
                 self.scale = ft.transform.Scale(1.015)  # Scale up by 1.5%
             else:  # Mouse left
                 self.scale = ft.transform.Scale(1.0)  # Reset to original size
-            event.control.update()
+            e.control.update()
 
 class EndpointDisplay(ft.Card):
     def __init__(self, page, parent, *args, **kwargs):
@@ -333,7 +336,7 @@ class EndpointDisplay(ft.Card):
 
     def display_endpoint(self, selected_endpoint: str):
         # get selected endpoint's data
-        if not (data := ufuncs.load_endpoint_data(filename=selected_endpoint)): 
+        if not (data := ufuncs.load_endpoint_data(name=selected_endpoint)): 
             logger.warning("Could not load endpoint.")
             return
         # self.display = ft.Column()
@@ -396,14 +399,16 @@ class EndpointDisplay(ft.Card):
         self.page.update()
     
     def __handle_save_edits_click(self, e: ft.ControlEvent):
+        if self.data is None: return
         # check if there is an endpoint being currently displayed
-        if isinstance(self.display, ft.Text): 
+        if isinstance(self.display, ft.Text): # Perform a check to see if the display is just Text (indicates that there are no ednpoints selected)
             self.page.open(ft.AlertDialog(content=ft.Row(controls=[ft.Icon(ft.icons.WARNING_AMBER, color=ft.colors.ORANGE_300), ft.Text("No Endpoint Selected!")])))
             return 
-
+        saved_endpoints_path = "../../appdata/saved_endpoints/"
         base_dir = os.path.dirname(__file__)
-        old_filename = self.data["filename"] # type: ignore
-        old_filepath = os.path.join(base_dir, "../../appdata/saved_endpoints/" + old_filename + "_" + self.data["endpoint_name"] + ".json") #type: ignore // self.data will not be None
+        old_name = self.data["filename"] 
+        old_filename = old_name + "_" + self.data["endpoint_name"]
+        old_filepath = os.path.join(base_dir, saved_endpoints_path + old_filename + "/" + old_filename + ".json")
 
         # self.content.content.controls[-1].content.controls -> refers to the list of row controls which hold the textfeilds. (very messy as I did not create a reference to the display)
         textfields = self.content.content.controls[-1].content.controls # type: ignore // This is the controls of the column object: A list that holds the rows of textfeilds of the display
@@ -412,8 +417,9 @@ class EndpointDisplay(ft.Card):
         new_params = {}
 
         # endpoint_name = textfields[1].controls[-1].value
-        new_filename = textfields[0].controls[-1].value
-        new_filepath = os.path.join(base_dir, "../../appdata/saved_endpoints/" + new_filename + "_" + self.data["endpoint_name"] + ".json") #type: ignore 
+        new_name = textfields[0].controls[-1].value
+        new_filename = new_name + "_" + self.data["endpoint_name"]
+        new_filepath = os.path.join(base_dir, saved_endpoints_path + new_filename + "/" + new_filename + ".json") 
 
         req_params = ufuncs.get_params(ep.ENDPOINTS[self.data["endpoint_name"]]) # type: ignore // get the required endpoint params for the endepoint type
         for row in textfields[2:]: # start from index 2 as we do not want to iterate through filename and endpoint name.
@@ -429,19 +435,37 @@ class EndpointDisplay(ft.Card):
         #Overwrite with new data 
         with open(old_filepath, "w", encoding="utf-8") as f:
             json.dump(new_data, f, ensure_ascii=False, indent=4)
-        logger.debug(f"Successfully edited {self.data['endpoint_name']} endppoint to file {new_filename}") #type: ignore
+        logger.debug(f"Successfully edited {self.data['endpoint_name']}") #type: ignore
 
-        # Rename the file 
+        old_dirpath = os.path.join(base_dir, saved_endpoints_path + old_filename)
+        new_dirpath = os.path.join(base_dir, saved_endpoints_path + new_filename)
+
+        os.rename(old_dirpath, new_dirpath)  # Rename the directory first
+        logger.debug(f"Successfully renamed directory '{old_filename}' to '{new_filename}'")
+
+        # Update file paths to reflect the new directory structure
+        old_filepath = os.path.join(new_dirpath, old_filename + ".json")
+        new_filepath = os.path.join(new_dirpath, new_filename + ".json")
+
+        # Rename the JSON file
         os.rename(old_filepath, new_filepath)
+        logger.debug(f"Successfully renamed file '{old_filename}.json' to '{new_filename}.json'")
+
+        # # Rename the json file 
+        # os.rename(old_filepath, new_filepath)
+
+        # #rename the directory file
+        # os.rename(os.path.join(base_dir, saved_endpoints_path + old_filename), os.path.join(base_dir, saved_endpoints_path + new_filename))
+        # logger.debug(f"Scucessfully renamed '{old_filename}' to '{new_filename}'")
 
         # reload the endpoint data (self.data) to reflect the edits
-        if not (data := ufuncs.load_endpoint_data(filename=new_filename + "_" + self.data["endpoint_name"])): # type: ignore
+        if not (data := ufuncs.load_endpoint_data(name=new_filename)): # type: ignore
             logger.warning("Could not load endpoint.")
             return
-        else:
-            # update the current selected data 
-            self.data = data
-            self.data["filename"]: str = new_filename # type: ignore
+        
+        # update the current selected data 
+        self.data = data
+        self.data["filename"]: str = new_filename # type: ignore
         
         self.page.open(ft.AlertDialog(content=ft.Row(controls=[ft.Icon(ft.icons.CHECK_CIRCLE, color=ft.colors.GREEN_300), ft.Text("Endpoint sucessfully edited!")])))
         self.parentUI.populate_endpoint_list()
@@ -478,30 +502,32 @@ class EndpointDisplay(ft.Card):
             textfeild: ft.TextField = row.controls[-1]
             key = param_name.replace(" ","_")
             new_params[key] = ufuncs.enforce_and_format_types(value=textfeild.value, expected_type=req_params[key][1]) # type:ignore
-        
-        # define the new json to be stored
-        new_data = {"endpoint_name": self.data["endpoint_name"], "params": new_params} # type: ignore
 
-        # write the new data to a new file.
-        with open(new_filepath, "w", encoding="utf-8") as f:
-            json.dump(new_data, f, ensure_ascii=False, indent=4)
-        logger.debug(f"Successfully saved new {self.data['endpoint_name']} endppoint to file {new_filename}") #type: ignore
+        # Create the new endpoint directory
+        ufuncs.Save_New_Endpoint_data(name=f"{new_filename}_{self.data['endpoint_name']}", endpoint_name=self.data["endpoint_name"], params=new_params) # type: ignore
+        
+        # # define the new json to be stored
+        # new_data = {"endpoint_name": self.data["endpoint_name"], "params": new_params} # type: ignore
+
+        # # write the new data to a new file.
+        # with open(new_filepath, "w", encoding="utf-8") as f:
+        #     json.dump(new_data, f, ensure_ascii=False, indent=4)
+        # logger.debug(f"Successfully saved new {self.data['endpoint_name']} endppoint to file {new_filename}") #type: ignore
 
         # reload the endpoint data (self.data) to reflect the edits
-        if not (data := ufuncs.load_endpoint_data(filename=new_filename + "_" + self.data["endpoint_name"])): # type: ignore
+        if not (data := ufuncs.load_endpoint_data(name=new_filename + "_" + self.data["endpoint_name"])): # type: ignore
             logger.warning("Could not load endpoint.")
-            return
-        else:
-            # update the current selected data 
-            self.data = data
-            self.data["filename"]: str = new_filename # type: ignore
+        self.data = data
+        self.data["filename"]: str = new_filename # type: ignore
         
+
         self.page.open(ft.AlertDialog(content=ft.Row(controls=[ft.Icon(ft.icons.CHECK_CIRCLE, color=ft.colors.GREEN_300), ft.Text("New endpoint sucessfully created!")])))
+        self.__handle_use_endpoint_click(None) # type: ignore // Paramter "e" for control event not used in the method. It can be set to None in this case.
         self.parentUI.populate_endpoint_list()
         self.parentUI.update()
     
     def reset_display(self, text: str|None  = None, text_colour: str|None = None):
-        self.content.content.controls[-1] = self.__none_selected if not text else ft.Text(text, color=text_colour, text_align=ft.TextAlign.CENTER, height=300)# type: ignore
+        self.content.content.controls[-1] = self.__none_selected if not text else ft.Text(text, color=text_colour, text_align=ft.TextAlign.CENTER, height=300) # type: ignore
 
 class EndpointsUI(ft.Column):
     def __init__(self, page: ft.Page, *args, **kwargs):
@@ -565,11 +591,12 @@ class EndpointsUI(ft.Column):
     def remove_endpoint_tile(self, event: ft.ControlEvent) -> bool:
         try:
             tile: IconListTile = event.control.parent.parent
-            filename = tile.Title + "_" + tile.Subtitle + ".json"
+            # filename = tile.Title + "_" + tile.Subtitle + ".json" # Old implementation of the endpoint management
+            dirname = tile.Title + "_" + tile.Subtitle
             base_dir = os.path.dirname(__file__)
 
-            file_path = os.path.join(base_dir, "../../appdata/saved_endpoints/" + filename)
-            if ufuncs.delete_file(file_path): # if the file can be deleted (then go on to remove the tile) else (just leave it, as it should be removed on the next page load)
+            file_path = os.path.join(base_dir, "../../appdata/saved_endpoints/" + dirname)
+            if ufuncs.delete_path(file_path): # if the file can be deleted (then go on to remove the tile) else (just leave it, as it should be removed on the next page load)
                 self.endpoints_list.controls.remove(tile)
                 logger.info("Removed endpoint tile")
                 self.page.update() # type: ignore

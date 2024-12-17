@@ -47,18 +47,21 @@ class EndpointForm(ft.AlertDialog):
         self.endpoint_ui = endpoint_ui # reference to the endpoint ui object in the page
         self.endpoint_name = endpoint_name
         self.actions = [ft.TextButton(text="+ Add", on_click=self.handle_submit), ft.TextButton(text="- Discard", on_click=lambda _: self.page.close(self))]
-        self.name_field = ft.TextField(hint_text="Required (filename of endpoint)", bgcolor=ft.colors.SURFACE_VARIANT, border_radius=8, border_color=ft.colors.TRANSPARENT)
+        self.name_field = ft.TextField(hint_text="Required", bgcolor=ft.colors.SURFACE_VARIANT, border_radius=8, border_color=ft.colors.TRANSPARENT)
         self.content: ft.Column = ft.Column(controls=[ft.Row(controls=[ft.Text("filename", expand=True), self.name_field], width=460)], spacing=5)
         super().__init__(*args, title=ft.Text(Title, text_align=ft.TextAlign.CENTER, size=28), actions=self.actions, content=self.content, modal=True,**kwargs)
 
 
     def __validate_fields(self, text_fields) -> bool:
         res = True
+        colour_red = ft.TextStyle(color=ft.colors.RED_300)
+        if self.name_field.hint_text == "Required" and not self.name_field.value:
+            self.name_field.hint_style = colour_red
         for text_field in text_fields:
             if text_field.controls[1].hint_text == "Required" and not text_field.controls[1].value: # if the text field has the hint required and the text field is not populated 
-                text_field.controls[1].hint_style = ft.TextStyle(color=ft.colors.RED_300)
-                self.update()
+                text_field.controls[1].hint_style = colour_red # Change the hint style to red
                 res = False
+        self.update()
         return res
 
     def populate_form(self, info: dict):
@@ -91,12 +94,13 @@ class EndpointForm(ft.AlertDialog):
         if not self.__validate_fields(text_fields): return
         name: str = ufuncs.sanitize_string(self.name_field.value, add_filter_characters="_") + "_" + self.endpoint_name # type: ignore validate_fields should prevent name from being None
         try:
-            # CLARIFICATION: row.controls[0].value.replace(" ","_") -> the actual name of the class parameter (e.g "API_key")
+            # CLARIFICATION: row.controls[0].value.replace(" ","_") -> replaces white space with "_" to get the actual name of the class parameter (e.g "API_key")
             # CLARIFICATION: self.__enforce_and_format_types(value=row.controls[1].value -> the value of the parameter cast to the correct values
             if self.req_params is None: return
             params = {(key:=row.controls[0].value.replace(" ","_")) : ufuncs.enforce_and_format_types(value=row.controls[1].value, expected_type=self.req_params[key][1]) for row in text_fields} # Creates a params dictionary from the textfeilds in the form
             # print(params)
-            ufuncs.Save_New_Endpoint_data(name=name, endpoint_name=self.endpoint_name, params=params) # saves the arguments/ parameters and the endpoint type into the defined json format
+            if not ufuncs.Save_New_Endpoint_data(name=name, endpoint_name=self.endpoint_name, params=params): # saves the arguments/ parameters and the endpoint type into the defined json format
+                raise Exception("There was an issue creating the endpoint directory")
             self.endpoint_ui.add_endpoint_tile(title=ufuncs.sanitize_string(self.name_field.value,add_filter_characters="_"), subtitle=self.endpoint_name) # type: ignore
             self.endpoint_ui.update()
             self.page.close(self) # 
